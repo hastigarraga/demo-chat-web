@@ -2,6 +2,148 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-:root { color-scheme: dark; }
-html, body { height: 100%; background: #0B0F17; }
-* { box-sizing: border-box; }
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: #020617;
+  color: #e2e8f0;
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+body {
+  display: flex;
+  min-height: 100vh;
+}
+
+app-root {
+  flex: 1;
+  display: flex;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.6;
+  box-shadow: none;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 0.85rem;
+  border: 1px solid #1f2937;
+  background: #111827;
+  color: #e2e8f0;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(8, 47, 73, 0.35);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #22d3ee, #0ea5e9);
+  border-color: rgba(14, 165, 233, 0.35);
+  color: #0b1120;
+}
+
+.btn-secondary {
+  background: #1f2937;
+  border-color: rgba(148, 163, 184, 0.25);
+  color: #e0f2fe;
+}
+
+.btn-muted {
+  background: transparent;
+  border-color: rgba(148, 163, 184, 0.2);
+  color: #94a3b8;
+}
+
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 0.65rem;
+  background: transparent;
+  border: 1px solid transparent;
+  color: inherit;
+}
+
+.btn-icon:hover:not(:disabled) {
+  background: rgba(148, 163, 184, 0.1);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+.input,
+.input:focus,
+.input:active,
+.input:disabled {
+  outline: none;
+}
+
+.input {
+  width: 100%;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.9rem;
+  border: 1px solid #1e293b;
+  background: rgba(15, 23, 42, 0.75);
+  color: inherit;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.input:focus {
+  border-color: rgba(14, 165, 233, 0.65);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.18);
+}
+
+.input--textarea {
+  resize: vertical;
+  min-height: 120px;
+  line-height: 1.5;
+}
+
+.text-dimmed {
+  color: rgba(148, 163, 184, 0.75);
+}
+
+.card {
+  background: rgba(8, 15, 29, 0.9);
+  border: 1px solid rgba(59, 130, 246, 0.12);
+  border-radius: 1.5rem;
+  padding: 2rem;
+  box-shadow: 0 20px 45px rgba(2, 6, 23, 0.35);
+  backdrop-filter: blur(12px);
+}
