@@ -1,0 +1,31 @@
+# Node / Angular build
+node_modules/
+dist/
+.angular/
+coverage/
+.tmp/
+.cache/
+*.tsbuildinfo
+
+# Entornos
+.env
+.env.*.local
+!.env.example
+cookies.txt
+
+# Logs y reportes
+logs/
+*.log
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+report.[0-9]*.json
+
+# IDE / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Misc
+*.local
