@@ -1,253 +1,196 @@
-const rawBase = (import.meta.env.VITE_API_BASE_URL ?? '').trim();
-const BASE = rawBase ? rawBase.replace(/\/+$/, '') : '';
-let CSRF: string | null = null;
+// src/app/api.ts
+type Role = 'user' | 'assistant' | 'tool';
+type ChatDelta = (text: string) => void;
 
-export function setCsrf(token: string) {
-  CSRF = token;
+export function apiBase(): string {
+  const w = (window as any);
+  const val = typeof w.__API_BASE__ === 'string' ? w.__API_BASE__ : '';
+  return String(val || '').trim().replace(/\/+$/, '');
 }
 
-function ensureBase() {
-  if (!BASE) {
-    throw new Error('Falta configurar VITE_API_BASE_URL en el frontend.');
-  }
-  return BASE;
+let CSRF: string | null = null;
+export function setCsrf(token: string) { CSRF = token || null; }
+
+function readCookie(name: string): string | null {
+  const m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()[\]\\/+^])/g, '\\$1') + '=([^;]*)'));
+  return m ? decodeURIComponent(m[1]) : null;
 }
 
 function buildInit(init: RequestInit = {}) {
-  const headers = new Headers(init.headers ?? {});
-  const hasBody = init.body !== undefined && init.body !== null;
-  const method = init.method ? init.method.toUpperCase() : undefined;
-
-  if (hasBody && !(init.body instanceof FormData) && !headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json');
+  const headers = new Headers(init.headers || {});
+  headers.set('accept', headers.get('accept') || 'application/json');
+  if (!headers.has('content-type') && init.body && typeof init.body !== 'string' && !(init.body instanceof FormData)) {
+    headers.set('content-type', 'application/json');
   }
-  if (CSRF) {
-    headers.set('X-CSRF-Token', CSRF);
-  }
-
-  const finalInit: RequestInit = {
-    ...init,
-    headers,
-    credentials: 'include',
-  };
-
-  if (method) {
-    finalInit.method = method;
-  }
-
-  return finalInit;
+  const csrf = CSRF ?? readCookie('csrfToken') ?? readCookie('XSRF-TOKEN');
+  if (csrf) headers.set('x-csrf-token', csrf);
+  const token = localStorage.getItem('token');
+  if (token && !headers.has('authorization')) headers.set('authorization', `Bearer ${token}`);
+  return { credentials: 'include' as const, ...init, headers };
 }
 
-async function readBody(response: Response) {
-  const contentType = response.headers.get('content-type') ?? '';
+async function readBody(r: Response) {
+  const ct = r.headers.get('content-type') || '';
   try {
-    if (contentType.includes('application/json')) {
-      return await response.json();
-    }
-    const text = await response.text();
-    if (!text) {
-      return null;
-    }
-    try {
-      return JSON.parse(text);
-    } catch {
-      return text;
-    }
-  } catch {
-    return null;
-  }
+    if (ct.includes('application/json')) return await r.json();
+    const t = await r.text();
+    try { return JSON.parse(t); } catch { return t || null; }
+  } catch { return null; }
 }
 
-function extractMessage(payload: unknown, fallback: string) {
-  if (!payload) {
-    return fallback;
+async function tryPaths<T>(paths: string[], init: RequestInit) {
+  const base = apiBase();
+  if (!base) throw new Error('FALTA_API_BASE');
+
+  let last: { status: number; body?: any } | null = null;
+
+  for (const p of paths) {
+    let r: Response;
+    try { r = await fetch(`${base}${p}`, buildInit(init)); }
+    catch { throw new Error('NETWORK_DOWN'); }
+
+    if (r.status === 401) throw new Error('NO_AUTH');
+
+    if (r.ok) return (await readBody(r)) as T;
+
+    last = { status: r.status, body: await readBody(r) };
+    if (r.status === 404) continue;
+    const msg = (last.body && (last.body.error || last.body.message)) || `HTTP ${last.status}`;
+    throw new Error(msg);
   }
-  if (typeof payload === 'string' && payload.trim()) {
-    return payload.trim();
+
+  if (last) {
+    const msg = (last.body && (last.body.error || last.body.message)) || `HTTP ${last.status}`;
+    throw new Error(msg);
   }
-  if (typeof payload === 'object') {
-    const maybe =
-      (payload as any)?.error ??
-      (payload as any)?.message ??
-      (payload as any)?.detail ??
-      (payload as any)?.errors;
-    if (typeof maybe === 'string' && maybe.trim()) {
-      return maybe.trim();
-    }
-    if (Array.isArray(maybe) && maybe.length && typeof maybe[0] === 'string') {
-      return maybe[0];
-    }
-  }
-  return fallback;
+  throw new Error('HTTP 404');
 }
 
-async function requestJson(path: string, init: RequestInit = {}) {
-  try {
-    const response = await fetch(`${ensureBase()}${path}`, buildInit(init));
-    const body = await readBody(response);
-    if (body && typeof body === 'object' && 'csrf' in body && (body as any).csrf) {
-      setCsrf((body as any).csrf);
-    }
-    if (!response.ok) {
-      throw new Error(extractMessage(body, `Error ${response.status}`));
-    }
-
-    if (body && typeof body === 'object') {
-      const record = body as Record<string, unknown>;
-      const negativeFlags = [
-        record.ok === false,
-        record.success === false,
-        typeof record.error === 'string' && record.error.trim().length > 0,
-      ];
-      if (negativeFlags.some(Boolean)) {
-        throw new Error(extractMessage(body, 'La operación no se pudo completar.'));
-      }
-    }
-
-    return body ?? {};
-  } catch (error) {
-    const message =
-      error instanceof Error && error.message
-        ? error.message
-        : 'No se pudo completar la petición.';
-    throw new Error(message);
-  }
-}
-
-export async function signup(email: string, password: string) {
-  return requestJson('/auth/signup', {
-    method: 'POST',
-    body: JSON.stringify({ email, password }),
-  });
-}
-
+/* -------- Auth -------- */
 export async function login(email: string, password: string) {
-  return requestJson('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ email, password }),
-  });
-}
+  const attempts: Array<{ path: string; init: RequestInit }> = [
+    { path: '/auth/login', init: { method: 'POST', body: JSON.stringify({ email, password }) } },
+    { path: '/login',      init: { method: 'POST', body: JSON.stringify({ email, password }) } },
+    { path: '/auth/login', init: { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ email, password }).toString() } },
+    { path: '/login',      init: { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ email, password }).toString() } },
+  ];
 
-export async function me() {
-  return requestJson('/auth/me');
-}
-
-export async function logout() {
-  return requestJson('/auth/logout', { method: 'POST' });
-}
-
-export async function listThreads() {
-  return requestJson('/threads');
-}
-
-export async function createThread(title: string) {
-  return requestJson('/threads', {
-    method: 'POST',
-    body: JSON.stringify({ title }),
-  });
-}
-
-export async function renameThread(id: string, title: string) {
-  return requestJson(`/threads/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify({ title }),
-  });
-}
-
-export async function deleteThread(id: string) {
-  return requestJson(`/threads/${id}`, {
-    method: 'DELETE',
-  });
-}
-
-export async function listMessages(threadId: string) {
-  return requestJson(`/messages?threadId=${encodeURIComponent(threadId)}`);
-}
-
-export async function postMessage(
-  threadId: string,
-  role: 'user' | 'assistant',
-  content: string
-) {
-  return requestJson('/messages', {
-    method: 'POST',
-    body: JSON.stringify({ threadId, role, content }),
-  });
-}
-
-export async function chatStream(
-  threadId: string,
-  messages: Array<{ role: string; content: string }>,
-  onDelta: (chunk: string) => void,
-  options: { signal?: AbortSignal } = {}
-) {
-  const init = buildInit({
-    method: 'POST',
-    body: JSON.stringify({ threadId, messages }),
-    signal: options.signal,
-  });
-
-  let response: Response;
-  try {
-    response = await fetch(`${ensureBase()}/chat`, init);
-  } catch (error) {
-    throw new Error(
-      error instanceof Error && error.message
-        ? error.message
-        : 'No se pudo iniciar el streaming de chat.'
-    );
-  }
-  if (!response.ok || !response.body) {
-    const payload = await readBody(response);
-    throw new Error(extractMessage(payload, 'No se pudo generar la respuesta.'));
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-
-  const flush = () => {
-    let index: number;
-    while ((index = buffer.indexOf('\n')) !== -1) {
-      const line = buffer.slice(0, index).replace(/\r$/, '');
-      buffer = buffer.slice(index + 1);
-      if (!line.trim() || !line.startsWith('data: ')) {
-        continue;
-      }
-      const chunk = line.slice(6).trim();
-      if (!chunk) {
-        continue;
-      }
-      if (chunk === '[DONE]') {
-        buffer = '';
-        return true;
-      }
-      onDelta(chunk);
+  for (const a of attempts) {
+    try {
+      const data = await tryPaths<{ token?: string }>([a.path], a.init);
+      if (data?.token) localStorage.setItem('token', data.token);
+      return data;
+    } catch (e: any) {
+      const msg = (e?.message || '').toUpperCase();
+      if (msg.includes('NETWORK_DOWN') || msg.includes('NO_AUTH')) throw e;
+      if (msg.includes('400') || msg.includes('404') || msg.includes('415')) continue;
+      throw e;
     }
-    return false;
-  };
+  }
+  throw new Error('BAD_INPUT');
+}
 
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) {
+export async function logout(): Promise<void> {
+  const base = apiBase();
+  if (!base) { localStorage.removeItem('token'); return; }
+
+  const attempts: Array<{ path: string; init: RequestInit }> = [
+    { path: '/auth/logout', init: { method: 'POST' } },
+    { path: '/logout',      init: { method: 'POST' } },
+  ];
+
+  for (const a of attempts) {
+    try {
+      await fetch(`${base}${a.path}`, { ...a.init, credentials: 'include', headers: { accept: 'application/json' } });
       break;
-    }
-    buffer += decoder.decode(value, { stream: true });
-    if (flush()) {
+    } catch { break; }
+  }
+  try { localStorage.removeItem('token'); } catch {}
+}
+
+/* -------- Mensajes -------- */
+export async function listMessages(threadId: string) {
+  const qs = threadId ? `?threadId=${encodeURIComponent(threadId)}` : '';
+  return tryPaths<{ rows: { role: Role, content: string }[] }>(
+    [`/messages${qs}`, `/api/messages${qs}`],
+    { method: 'GET' }
+  );
+}
+
+export async function postMessage(threadId: string, role: Role, content: string, toolMeta?: any) {
+  const body = JSON.stringify({ threadId, role, content, toolMeta });
+  return tryPaths(['/messages', '/api/messages'], { method: 'POST', body });
+}
+
+/* -------- Streaming -------- */
+export async function chatStream(args: {
+  threadId: string; message: string; onDelta: ChatDelta; signal?: AbortSignal;
+}) {
+  const base = apiBase();
+  if (!base) throw new Error('FALTA_API_BASE');
+
+  const headers = new Headers();
+  headers.set('accept', 'text/event-stream');
+  headers.set('content-type', 'application/json');
+
+  const csrf = CSRF ?? readCookie('csrfToken') ?? readCookie('XSRF-TOKEN');
+  if (csrf) headers.set('x-csrf-token', csrf);
+  const token = localStorage.getItem('token');
+  if (token) headers.set('authorization', `Bearer ${token}`);
+
+  const payload = JSON.stringify({ threadId: args.threadId, content: args.message });
+  const candidates = ['/chat', '/api/chat'];
+  let lastErr: any = null;
+
+  for (const path of candidates) {
+    try {
+      const r = await fetch(`${base}${path}`, {
+        method: 'POST',
+        body: payload,
+        signal: args.signal,
+        headers,
+        credentials: 'include'
+      });
+      if (r.status === 401) throw new Error('NO_AUTH');
+      if (!r.ok || !r.body) {
+        const body = await readBody(r).catch(() => null);
+        const msg = (body && (body.error || body.message)) || `HTTP ${r.status}`;
+        if (r.status === 404) { lastErr = new Error(msg); continue; }
+        throw new Error(`SSE ${path}: ${msg}`);
+      }
+
+      const reader = r.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let idx: number;
+        while ((idx = buffer.indexOf('\n\n')) >= 0) {
+          const raw = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 2);
+          for (const line of raw.split('\n')) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('data:')) continue;
+            const json = trimmed.slice(5).trim();
+            if (!json) continue;
+            try {
+              const evt = JSON.parse(json);
+              if (evt?.type === 'chunk' && typeof evt.value === 'string') args.onDelta(evt.value);
+              else if (evt?.type === 'done') return;
+              else if (evt?.type === 'error') throw new Error(evt.message || 'Error de streaming');
+            } catch {
+              if (json && typeof json === 'string') args.onDelta(json);
+            }
+          }
+        }
+      }
       return;
+    } catch (e) {
+      lastErr = e;
     }
   }
-
-  buffer += decoder.decode();
-  if (flush()) {
-    return;
-  }
-
-  const trimmed = buffer.trim();
-  if (trimmed.startsWith('data: ')) {
-    const chunk = trimmed.slice(6).trim();
-    if (chunk && chunk !== '[DONE]') {
-      onDelta(chunk);
-    }
-  }
+  throw lastErr || new Error('HTTP 404');
 }

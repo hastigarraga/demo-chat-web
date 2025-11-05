@@ -1,6 +1,7 @@
-import { Component, OnDestroy } from '@angular/core';
+import { Component, ElementRef, ViewChild, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { listMessages, postMessage, chatStream } from '../api';
 
 type Msg = { role: 'user' | 'assistant' | 'system'; content: string };
@@ -10,374 +11,173 @@ type Msg = { role: 'user' | 'assistant' | 'system'; content: string };
   selector: 'app-chat',
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="chat">
-      <header class="chat__header">
-        <div>
-          <h2 class="chat__title">Chat conversacional</h2>
-          <p class="chat__subtitle text-dimmed">
-            Conversá en tiempo real con respuestas en streaming.
-          </p>
-        </div>
-        <span class="chat__status" *ngIf="sending">Generando respuesta…</span>
-      </header>
-
-      <section class="chat__messages" id="scroll">
-        <p class="chat__placeholder" *ngIf="!threadId && !loadingMessages">
-          Seleccioná o creá un hilo para comenzar.
-        </p>
-
-        <p class="chat__placeholder" *ngIf="loadingMessages">
-          Cargando mensajes…
-        </p>
-
-        <ng-container *ngIf="threadId">
-          <article
-            class="message"
-            *ngFor="let m of messages"
-            [ngClass]="{
-              'message--user': m.role === 'user',
-              'message--assistant': m.role === 'assistant',
-              'message--system': m.role === 'system'
-            }"
-          >
-            <span class="message__role">{{ labelFor(m.role) }}</span>
-            <div class="message__bubble">{{ m.content }}</div>
-          </article>
-        </ng-container>
-      </section>
-
-      <div class="chat__error" *ngIf="chatError">{{ chatError }}</div>
-
-      <form class="chat__composer" (submit)="send($event)">
-        <textarea
-          class="input input--textarea"
-          [(ngModel)]="input"
-          name="msg"
-          placeholder="Escribí tu mensaje. Shift + Enter para saltar de línea."
-          (keydown.enter)="onEnter($event)"
-          (keydown.shift.enter)="$event.stopPropagation()"
-          [disabled]="!threadId || sending"
-        ></textarea>
-        <button
-          type="submit"
-          class="btn btn-primary"
-          [disabled]="!threadId || sending || !input.trim()"
-        >
-          Enviar
-        </button>
-      </form>
+  <div class="chat-wrap">
+    <div class="chat-header">
+      <h1>Conversación</h1>
+      <div class="hint">Streaming SSE, abort, reconexión simple.</div>
     </div>
-  `,
-  styles: [
-    `
-      :host {
-        display: block;
-        height: 100%;
-      }
 
-      .chat {
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        padding: 2rem;
-        gap: 1.5rem;
-      }
+    <div #list class="chat-list">
+      <div *ngIf="authRequired" class="state state--error">
+        No estás autenticado.
+        <button class="btn primary" (click)="goLogin()">Ir a login</button>
+      </div>
 
-      .chat__header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 1rem;
-      }
+      <div *ngIf="loading && !messages.length && !authRequired" class="state state--loading">Cargando mensajes…</div>
+      <div *ngIf="err && !messages.length && !authRequired" class="state state--error">
+        {{err}} <button class="btn" (click)="reload()" [disabled]="busy">Reintentar</button>
+      </div>
 
-      .chat__title {
-        margin: 0;
-        font-size: 1.65rem;
-      }
+      <ng-container *ngIf="!authRequired">
+        <div *ngFor="let m of messages" class="msg" [class.me]="m.role==='user'">
+          <div class="msg-role">{{ labelFor(m.role) }}</div>
+          <div class="msg-bubble">{{ m.content }}</div>
+        </div>
 
-      .chat__subtitle {
-        margin: 0.35rem 0 0 0;
-      }
+        <div *ngIf="assistantStreaming" class="msg">
+          <div class="msg-role">Asistente</div>
+          <div class="msg-bubble">
+            <span *ngIf="assistantBuffer; else typing">{{ assistantBuffer }}</span>
+            <ng-template #typing><span class="dots"></span></ng-template>
+          </div>
+        </div>
+      </ng-container>
+    </div>
 
-      .chat__status {
-        padding: 0.25rem 0.85rem;
-        border-radius: 999px;
-        background: rgba(191, 219, 254, 0.65);
-        border: 1px solid rgba(59, 130, 246, 0.45);
-        font-size: 0.85rem;
-        color: #1d4ed8;
-        font-weight: 600;
-      }
+    <form class="composer" (ngSubmit)="send()" novalidate>
+      <textarea
+        class="input"
+        [(ngModel)]="draft"
+        name="draft"
+        rows="3"
+        placeholder="Escribí tu mensaje…"
+        [disabled]="busy || authRequired"
+        (keydown)="onKeydown($event)"></textarea>
 
-      .chat__messages {
-        flex: 1;
-        min-height: 0;
-        overflow-y: auto;
-        padding: 1.5rem;
-        border-radius: 1.5rem;
-        border: 1px solid rgba(203, 213, 225, 0.9);
-        background: #ffffff;
-        display: flex;
-        flex-direction: column;
-        gap: 1.15rem;
-      }
+      <div class="actions">
+        <button class="btn primary" type="submit" [disabled]="busy || !draft.trim() || authRequired">
+          <span *ngIf="!busy">Enviar</span>
+          <span *ngIf="busy" class="spinner"></span>
+        </button>
+        <button class="btn ghost" type="button" (click)="abort()" [disabled]="!assistantStreaming">Abortar</button>
+        <button class="btn" type="button" (click)="reload()" [disabled]="busy">Refrescar</button>
+      </div>
+    </form>
 
-      .chat__placeholder {
-        margin: auto;
-        text-align: center;
-        color: rgba(71, 85, 105, 0.9);
-        font-size: 0.95rem;
-      }
-
-      .message {
-        display: flex;
-        flex-direction: column;
-        gap: 0.35rem;
-        max-width: 82%;
-      }
-
-      .message--user {
-        margin-left: auto;
-        align-items: flex-end;
-      }
-
-      .message--assistant {
-        align-items: flex-start;
-      }
-
-      .message__role {
-        font-size: 0.75rem;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: rgba(100, 116, 139, 0.85);
-      }
-
-      .message__bubble {
-        padding: 0.9rem 1.1rem;
-        border-radius: 1.2rem;
-        background: #f8fafc;
-        border: 1px solid rgba(203, 213, 225, 0.9);
-        white-space: pre-wrap;
-        line-height: 1.5;
-        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
-      }
-
-      .message--user .message__bubble {
-        background: linear-gradient(135deg, rgba(191, 219, 254, 0.9), rgba(147, 197, 253, 0.9));
-        border-color: rgba(96, 165, 250, 0.8);
-        color: #0f172a;
-      }
-
-      .message--assistant .message__bubble {
-        background: #ffffff;
-        border-color: rgba(148, 163, 184, 0.6);
-      }
-
-      .message--system .message__bubble {
-        background: rgba(254, 249, 195, 0.8);
-        border-color: rgba(250, 204, 21, 0.45);
-      }
-
-      .chat__error {
-        border-radius: 1rem;
-        border: 1px solid rgba(248, 113, 113, 0.45);
-        background: rgba(254, 226, 226, 0.65);
-        color: #b91c1c;
-        padding: 0.75rem 1rem;
-        font-weight: 600;
-      }
-
-      .chat__composer {
-        display: flex;
-        gap: 1rem;
-        align-items: flex-end;
-      }
-
-      .chat__composer .input {
-        min-height: 120px;
-      }
-
-      @media (max-width: 720px) {
-        .chat {
-          padding: 1.25rem;
-        }
-
-        .chat__messages {
-          padding: 1.1rem;
-        }
-
-        .chat__composer {
-          flex-direction: column;
-          align-items: stretch;
-        }
-
-        .chat__composer button {
-          width: 100%;
-        }
-      }
-    `,
-  ],
+    <div *ngIf="err && messages.length && !authRequired" class="footer-error">
+      {{err}} <button class="btn" (click)="err=''">Cerrar</button>
+    </div>
+  </div>
+  `
 })
 export class ChatPage implements OnDestroy {
-  input = '';
+  @ViewChild('list') listRef!: ElementRef<HTMLElement>;
+
+  constructor(private router: Router) {}
+
+  threadId = 'default';
   messages: Msg[] = [];
-  threadId: string | null = null;
-  loadingMessages = false;
-  sending = false;
-  chatError = '';
+  loading = false;
+  busy = false;
+  err = '';
+  authRequired = false;
 
-  private streamAbort: AbortController | null = null;
-  private onSelect = (ev: CustomEvent<string | null>) => this.loadThread(ev?.detail ?? null);
+  assistantStreaming = false;
+  assistantBuffer = '';
+  private abortCtrl: AbortController | null = null;
 
-  async ngOnInit() {
-    const params = new URLSearchParams(location.search);
-    await this.loadThread(params.get('t'));
-    window.addEventListener('thread-selected', this.onSelect as any);
-  }
+  async ngOnInit() { await this.reload(); }
+  ngOnDestroy(): void { this.abort(); }
 
-  ngOnDestroy() {
-    window.removeEventListener('thread-selected', this.onSelect as any);
-    this.cancelStream();
-  }
-
-  private async loadThread(id: string | null) {
-    if (this.threadId === id && !this.loadingMessages) {
-      return;
-    }
-
-    this.cancelStream();
-    this.threadId = id;
-    this.chatError = '';
-    this.messages = [];
-
-    if (!id) {
-      return;
-    }
-
-    this.loadingMessages = true;
+  async reload() {
+    this.loading = true; this.err = ''; this.authRequired = false;
     try {
-      const response = await listMessages(id);
-      if (this.threadId !== id) {
-        return;
-      }
-      const rows = Array.isArray(response?.rows) ? response.rows : [];
-      this.messages = rows.map((m: any) => ({ role: m.role, content: m.content })) as Msg[];
-      this.scroll();
-    } catch (error) {
-      if (this.threadId === id) {
-        this.chatError = this.formatError(error, 'No se pudieron cargar los mensajes.');
+      const res = await (await import('../api')).listMessages(this.threadId);
+      this.messages = (res?.rows || []) as Msg[];
+      this.scrollToBottom(true);
+    } catch (e) {
+      const msg = this.formatError(e, 'No pude cargar los mensajes.');
+      if (msg === 'NO_AUTH') {
+        this.authRequired = true;
+        // redirección automática a la SPA de login
+        setTimeout(() => this.goLogin(), 150);
+      } else {
+        this.err = msg;
       }
     } finally {
-      if (this.threadId === id) {
-        this.loadingMessages = false;
-      }
+      this.loading = false;
     }
   }
 
-  onEnter(ev: KeyboardEvent) {
-    if (!ev.shiftKey) {
-      ev.preventDefault();
-      void this.send();
-    }
+  draft = '';
+
+  onKeydown(e: KeyboardEvent) {
+    if (e.key !== 'Enter') return;
+    if (e.shiftKey) return;
+    e.preventDefault();
+    if (!this.busy) this.send();
   }
 
-  private scroll() {
-    setTimeout(() => {
-      document.getElementById('scroll')?.scrollTo({ top: 9e9, behavior: 'smooth' });
-    }, 0);
-  }
+  async send() {
+    const text = (this.draft || '').trim();
+    if (!text || this.busy || this.authRequired) return;
 
-  async send(ev?: Event) {
-    ev?.preventDefault();
-    if (!this.threadId || this.sending || this.loadingMessages) {
-      return;
-    }
-
-    const text = this.input.trim();
-    if (!text) {
-      return;
-    }
-
-    this.chatError = '';
-    this.sending = true;
-    this.input = '';
-
-    const userMessage: Msg = { role: 'user', content: text };
-    this.messages.push(userMessage);
-    this.scroll();
-
-    let assistant: Msg | null = null;
+    this.busy = true; this.err = ''; this.assistantBuffer = '';
+    const userMsg: Msg = { role: 'user', content: text };
+    this.messages.push(userMsg);
+    this.draft = '';
+    this.scrollToBottom();
 
     try {
       await postMessage(this.threadId, 'user', text);
 
-      assistant = { role: 'assistant', content: '' };
-      this.messages.push(assistant);
-      this.scroll();
+      this.abort();
+      this.abortCtrl = new AbortController();
 
-      this.streamAbort = new AbortController();
-      await chatStream(
-        this.threadId,
-        this.messages,
-        (delta) => {
-          if (!assistant) {
-            return;
-          }
-          assistant.content += delta;
-          this.scroll();
-        },
-        { signal: this.streamAbort.signal }
-      );
-    } catch (error) {
-      if ((error as DOMException)?.name === 'AbortError') {
-        return;
-      }
+      this.assistantStreaming = true;
+      await chatStream({
+        threadId: this.threadId,
+        message: text,
+        onDelta: (chunk) => { this.assistantBuffer += chunk; this.scrollToBottom(); },
+        signal: this.abortCtrl.signal
+      });
 
-      this.chatError = this.formatError(error, 'No se pudo enviar el mensaje.');
-      if (assistant && !assistant.content) {
-        const index = this.messages.indexOf(assistant);
-        if (index !== -1) {
-          this.messages.splice(index, 1);
-        }
-      } else if (!assistant) {
-        const index = this.messages.indexOf(userMessage);
-        if (index !== -1) {
-          this.messages.splice(index, 1);
-        }
+      const final = this.assistantBuffer.trim();
+      if (final) {
+        await postMessage(this.threadId, 'assistant', final);
+        this.messages.push({ role: 'assistant', content: final });
       }
-      this.input = text;
+    } catch (e) {
+      const msg = this.formatError(e, 'El chat falló. Probá de nuevo.');
+      if (msg === 'NO_AUTH') { this.authRequired = true; setTimeout(() => this.goLogin(), 150); }
+      else this.err = msg;
     } finally {
-      this.sending = false;
-      this.cancelStream();
+      this.assistantStreaming = false;
+      this.assistantBuffer = '';
+      this.busy = false;
+      this.abortCtrl = null;
+      this.scrollToBottom();
     }
   }
 
-  private cancelStream() {
-    if (this.streamAbort) {
-      this.streamAbort.abort();
-      this.streamAbort = null;
-    }
+  goLogin() { this.router.navigateByUrl('/login'); }
+
+  abort() { if (this.abortCtrl) { try { this.abortCtrl.abort(); } catch {} } this.abortCtrl = null; }
+
+  private scrollToBottom(force = false) {
+    queueMicrotask(() => {
+      const el = this.listRef?.nativeElement;
+      if (!el) return;
+      if (force || el.scrollHeight - el.scrollTop - el.clientHeight < 160) el.scrollTop = el.scrollHeight;
+    });
   }
 
-  private labelFor(role: Msg['role']) {
-    switch (role) {
-      case 'user':
-        return 'Vos';
-      case 'assistant':
-        return 'Asistente';
-      default:
-        return 'Sistema';
-    }
-  }
+  labelFor(role: Msg['role']) { return role === 'user' ? 'Vos' : role === 'assistant' ? 'Asistente' : 'Sistema'; }
 
   private formatError(error: unknown, fallback: string) {
-    if (error instanceof Error && error.message) {
-      return error.message;
-    }
-    if (typeof error === 'string' && error.trim()) {
-      return error.trim();
-    }
+    if (error instanceof Error && error.message) return error.message;
+    if (typeof error === 'string' && error.trim()) return error.trim();
+    try { const s = JSON.stringify(error); if (s && s !== '{}') return s; } catch {}
     return fallback;
   }
 }
