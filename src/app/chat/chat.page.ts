@@ -102,10 +102,10 @@ type Msg = { role: 'user' | 'assistant' | 'system'; content: string };
       .chat__status {
         padding: 0.25rem 0.85rem;
         border-radius: 999px;
-        background: rgba(37, 99, 235, 0.15);
-        border: 1px solid rgba(37, 99, 235, 0.35);
+        background: rgba(191, 219, 254, 0.65);
+        border: 1px solid rgba(59, 130, 246, 0.45);
         font-size: 0.85rem;
-        color: rgba(191, 219, 254, 0.85);
+        color: #1d4ed8;
         font-weight: 600;
       }
 
@@ -115,8 +115,8 @@ type Msg = { role: 'user' | 'assistant' | 'system'; content: string };
         overflow-y: auto;
         padding: 1.5rem;
         border-radius: 1.5rem;
-        border: 1px solid rgba(30, 41, 59, 0.75);
-        background: linear-gradient(160deg, rgba(15, 23, 42, 0.82), rgba(8, 15, 29, 0.88));
+        border: 1px solid rgba(203, 213, 225, 0.9);
+        background: #ffffff;
         display: flex;
         flex-direction: column;
         gap: 1.15rem;
@@ -125,7 +125,7 @@ type Msg = { role: 'user' | 'assistant' | 'system'; content: string };
       .chat__placeholder {
         margin: auto;
         text-align: center;
-        color: rgba(148, 163, 184, 0.85);
+        color: rgba(71, 85, 105, 0.9);
         font-size: 0.95rem;
       }
 
@@ -150,39 +150,40 @@ type Msg = { role: 'user' | 'assistant' | 'system'; content: string };
         font-weight: 700;
         letter-spacing: 0.08em;
         text-transform: uppercase;
-        color: rgba(148, 163, 184, 0.7);
+        color: rgba(100, 116, 139, 0.85);
       }
 
       .message__bubble {
         padding: 0.9rem 1.1rem;
         border-radius: 1.2rem;
-        background: rgba(15, 23, 42, 0.9);
-        border: 1px solid rgba(51, 65, 85, 0.55);
+        background: #f8fafc;
+        border: 1px solid rgba(203, 213, 225, 0.9);
         white-space: pre-wrap;
         line-height: 1.5;
-        box-shadow: 0 10px 24px rgba(2, 6, 23, 0.45);
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
       }
 
       .message--user .message__bubble {
-        background: linear-gradient(135deg, rgba(14, 165, 233, 0.22), rgba(56, 189, 248, 0.35));
-        border-color: rgba(14, 165, 233, 0.45);
+        background: linear-gradient(135deg, rgba(191, 219, 254, 0.9), rgba(147, 197, 253, 0.9));
+        border-color: rgba(96, 165, 250, 0.8);
+        color: #0f172a;
       }
 
       .message--assistant .message__bubble {
-        background: rgba(8, 11, 25, 0.88);
-        border-color: rgba(37, 99, 235, 0.35);
+        background: #ffffff;
+        border-color: rgba(148, 163, 184, 0.6);
       }
 
       .message--system .message__bubble {
-        background: rgba(250, 204, 21, 0.12);
-        border-color: rgba(250, 204, 21, 0.35);
+        background: rgba(254, 249, 195, 0.8);
+        border-color: rgba(250, 204, 21, 0.45);
       }
 
       .chat__error {
         border-radius: 1rem;
         border: 1px solid rgba(248, 113, 113, 0.45);
-        background: rgba(248, 113, 113, 0.12);
-        color: #fecaca;
+        background: rgba(254, 226, 226, 0.65);
+        color: #b91c1c;
         padding: 0.75rem 1rem;
         font-weight: 600;
       }

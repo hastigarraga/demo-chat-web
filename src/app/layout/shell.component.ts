@@ -132,9 +132,9 @@ type Thread = { _id: string; title: string };
         display: flex;
         height: 100%;
         width: 100%;
-        background: radial-gradient(circle at top, rgba(37, 99, 235, 0.18), transparent 60%),
-          radial-gradient(circle at bottom right, rgba(8, 47, 73, 0.25), transparent 55%),
-          #020617;
+        background: radial-gradient(circle at top, rgba(59, 130, 246, 0.15), transparent 60%),
+          radial-gradient(circle at bottom right, rgba(134, 239, 172, 0.18), transparent 55%),
+          #f8fafc;
       }
 
       .shell__content {
@@ -167,8 +167,8 @@ type Thread = { _id: string; title: string };
         padding: 0.35rem 0.75rem;
         border-radius: 999px;
         border: 1px solid rgba(59, 130, 246, 0.35);
-        background: rgba(37, 99, 235, 0.12);
-        color: rgba(191, 219, 254, 0.9);
+        background: rgba(59, 130, 246, 0.12);
+        color: #1d4ed8;
         font-size: 0.85rem;
         font-weight: 600;
       }
@@ -177,18 +177,18 @@ type Thread = { _id: string; title: string };
         padding: 0.85rem 1.1rem;
         border-radius: 1rem;
         border: 1px solid rgba(248, 113, 113, 0.45);
-        background: rgba(248, 113, 113, 0.12);
-        color: #fecaca;
+        background: rgba(254, 226, 226, 0.65);
+        color: #b91c1c;
         font-size: 0.95rem;
       }
 
       .shell__router {
         flex: 1;
         min-height: 0;
-        border-radius: 1.75rem;
-        border: 1px solid rgba(15, 23, 42, 0.65);
-        background: rgba(8, 11, 25, 0.75);
-        box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.05);
+        border-radius: 1.5rem;
+        border: 1px solid rgba(203, 213, 225, 0.9);
+        background: #ffffff;
+        box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
         overflow: hidden;
         display: flex;
         flex-direction: column;
@@ -241,7 +241,7 @@ type Thread = { _id: string; title: string };
 
       .auth__error {
         margin-top: -0.5rem;
-        color: #fca5a5;
+        color: #b91c1c;
         font-weight: 600;
       }
 

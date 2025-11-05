@@ -78,9 +78,9 @@ type Thread = { _id: string; title: string };
       .sidebar {
         width: 300px;
         height: 100%;
-        padding: 1.5rem 1.25rem 1.5rem 1.5rem;
-        border-right: 1px solid rgba(15, 23, 42, 0.75);
-        background: linear-gradient(180deg, rgba(15, 23, 42, 0.95), rgba(8, 15, 29, 0.95));
+        padding: 1.5rem 1.25rem 1.5rem 1.75rem;
+        border-right: 1px solid rgba(203, 213, 225, 0.9);
+        background: linear-gradient(180deg, #ffffff, #f1f5f9);
         display: flex;
         flex-direction: column;
         gap: 1.25rem;
@@ -108,9 +108,9 @@ type Thread = { _id: string; title: string };
         margin: 0;
         padding: 0.75rem 1rem;
         border-radius: 1rem;
-        background: rgba(15, 23, 42, 0.55);
-        color: rgba(148, 163, 184, 0.85);
-        border: 1px dashed rgba(148, 163, 184, 0.35);
+        background: rgba(226, 232, 240, 0.35);
+        color: rgba(71, 85, 105, 0.85);
+        border: 1px dashed rgba(148, 163, 184, 0.45);
       }
 
       .sidebar__list {
@@ -124,15 +124,15 @@ type Thread = { _id: string; title: string };
 
       .thread {
         border-radius: 1rem;
-        background: rgba(15, 23, 42, 0.45);
-        border: 1px solid transparent;
+        background: rgba(255, 255, 255, 0.85);
+        border: 1px solid rgba(226, 232, 240, 0.9);
         transition: border-color 120ms ease, background 120ms ease, transform 120ms ease;
       }
 
       .thread--selected {
-        border-color: rgba(14, 165, 233, 0.45);
-        background: rgba(8, 47, 73, 0.35);
-        box-shadow: 0 12px 24px rgba(8, 47, 73, 0.25);
+        border-color: rgba(37, 99, 235, 0.5);
+        background: rgba(219, 234, 254, 0.85);
+        box-shadow: 0 12px 24px rgba(37, 99, 235, 0.15);
       }
 
       .thread__container {
@@ -164,7 +164,7 @@ type Thread = { _id: string; title: string };
 
       .btn-icon {
         font-size: 0.9rem;
-        color: rgba(226, 232, 240, 0.95);
+        color: #1e293b;
       }
 
       .btn-icon:focus-visible {
