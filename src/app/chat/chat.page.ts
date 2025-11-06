@@ -11,21 +11,116 @@ import { ChatService } from "./chat.service";
   imports: [CommonModule, FormsModule]
 })
 export class ChatPage implements OnInit {
-  threads:any[]=[]; current:any=null; input=""; sending=false;
+  threads:any[]=[]; current:any=null; messages:any[]=[];
+  input=""; sending=false;
   @ViewChild("bottom") bottom!: ElementRef<HTMLDivElement>;
+
   constructor(private api: ChatService) {}
-  ngOnInit(){ this.api.lastActive().subscribe({next:t=>{this.current=t;this.load();},error:_=>this.load()}); }
-  load(){ this.api.listThreads().subscribe(list=>{ this.threads=list||[]; if(!this.current&&this.threads.length) this.current=this.threads[0]; }); }
-  select(t:any){ if(this.current?.id===t?.id) return; this.current=t; }
-  send(){
-    const text=this.input.trim(); if(!text||this.sending) return;
-    this.sending=true;
-    this.api.sendMessage(this.current?.id||null, text).subscribe({
-      next: res => { this.current=res?.thread??this.current; this.input=""; this.sending=false;
-        setTimeout(()=>this.bottom?.nativeElement?.scrollIntoView({behavior:"smooth"}),50);
-        this.load(); },
-      error: _ => { this.sending=false; }
+
+  ngOnInit(){ this.bootstrap(); }
+
+  bootstrap(){
+    console.log("[ChatPage] bootstrap");
+    this.api.listThreads().subscribe({
+      next: res => {
+        console.log("[ChatPage] threads", res);
+        this.threads = res.rows || [];
+        this.ensureActive();
+      },
+      error: err => console.error("[ChatPage] listThreads error", err)
     });
   }
-  trackById(_:number,t:any){ return t?.id||t?._id||t?.threadId; }
+
+  ensureActive(){
+    if (this.current) { this.loadMessages(this.current._id || this.current.id); return; }
+    this.api.lastActive().subscribe({
+      next: res => {
+        console.log("[ChatPage] lastActive", res);
+        this.current = res.row;
+        if (this.current) this.loadMessages(this.current._id || this.current.id);
+      },
+      error: err => console.error("[ChatPage] lastActive error", err)
+    });
+  }
+
+  loadMessages(id:string){
+    console.log("[ChatPage] loadMessages", id);
+    this.api.getThread(id).subscribe({
+      next: res => {
+        console.log("[ChatPage] getThread", res);
+        this.current = res.row;
+        this.messages = res.messages || [];
+        setTimeout(()=>this.bottom?.nativeElement?.scrollIntoView({behavior:"smooth"}), 50);
+      },
+      error: err => console.error("[ChatPage] getThread error", err)
+    });
+  }
+
+  select(t:any){
+    if (!t) return;
+    const id = t._id || t.id;
+    if (id === (this.current?._id || this.current?.id)) return;
+    this.current = t;
+    this.loadMessages(id);
+  }
+
+  newThread(){
+    this.api.createThread().subscribe({
+      next: res => {
+        console.log("[ChatPage] newThread", res);
+        this.threads.unshift(res.row);
+        this.select(res.row);
+      },
+      error: err => console.error("[ChatPage] newThread error", err)
+    });
+  }
+
+  renameThread(t:any){
+    const curr = t?.title || "Nuevo chat";
+    const title = prompt("Nuevo título", curr)?.trim();
+    if (!title) return;
+    const id = t._id || t.id;
+    this.api.renameThread(id, title).subscribe({
+      next: _ => {
+        t.title = title;
+        console.log("[ChatPage] renamed", id, title);
+      },
+      error: err => console.error("[ChatPage] rename error", err)
+    });
+  }
+
+  removeThread(t:any){
+    const id = t._id || t.id;
+    if (!confirm("¿Eliminar este chat?")) return;
+    this.api.deleteThread(id).subscribe({
+      next: _ => {
+        console.log("[ChatPage] deleted", id);
+        this.threads = this.threads.filter(x => (x._id||x.id) !== id);
+        this.current = null; this.messages = [];
+        this.ensureActive();
+      },
+      error: err => console.error("[ChatPage] delete error", err)
+    });
+  }
+
+  send(){
+    const text = this.input.trim();
+    if (!text || this.sending) return;
+    this.sending = true;
+    const id = this.current?._id || this.current?.id || null;
+    console.log("[ChatPage] send", { id, text });
+    this.api.sendMessage(id, text).subscribe({
+      next: res => {
+        console.log("[ChatPage] sendMessage response", res);
+        this.current = res.thread || this.current;
+        this.messages = res.messages || this.messages;
+        this.input = ""; this.sending = false;
+        setTimeout(()=>this.bottom?.nativeElement?.scrollIntoView({behavior:"smooth"}), 50);
+        this.bootstrap();
+      },
+      error: err => { console.error("[ChatPage] send error", err); this.sending=false; }
+    });
+  }
+
+  trackByIdx(_:number, m:any){ return m?.id || `${m.role}:${m.content?.slice(0,12)}`; }
 }

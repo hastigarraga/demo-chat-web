@@ -1,20 +1,7 @@
-<div class="layout">
-  <app-sidebar-threads
-    [threads]="threads()"
-    [selectedId]="selectedId()"
-    [busy]="busy()"
-    (create)="handleCreate()"
-    (select)="handleSelect($event)"
-    (rename)="handleRename($event)"
-    (remove)="handleRemove($event)"
-  ></app-sidebar-threads>
-
+<div class="shell">
+  <header class="topbar"><strong>Demo Chat</strong></header>
   <main class="main">
     <section class="content">
-      <div class="card" style="padding:12px;margin-bottom:12px">
-        <strong>Shell cargado</strong>
-        <div>Thread actual: {{ selectedId() || 'n/a' }}</div>
-      </div>
       <router-outlet></router-outlet>
     </section>
   </main>

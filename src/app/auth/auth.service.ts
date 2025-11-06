@@ -9,21 +9,25 @@ export class AuthService {
 
   login(email: string, password: string) {
     const url = environment.API_BASE + environment.PATHS.login;
-    return this.http.post<{access?: string, refresh?: string, user?: any}>(url, { email, password })
+    return this.http.post<{ok:boolean, access?:string, user?:any, csrf?:string}>(url, { email, password })
       .pipe(tap(res => {
         console.log("[AuthService] login response", res);
-        if (res?.access) localStorage.setItem("token", res.access);   // ✅ AHORA GUARDA EL JWT REAL
-        if (res?.user) localStorage.setItem("user", JSON.stringify(res.user));
+        if (res?.access) localStorage.setItem("token", res.access);
+        if (res?.csrf) localStorage.setItem("csrf", res.csrf);
       }));
   }
 
-  signup(name: string, email: string, password: string) {
+  signup(email: string, password: string) {
     const url = environment.API_BASE + environment.PATHS.signup;
-    return this.http.post<{access?: string, refresh?: string, user?: any}>(url, { name, email, password })
+    return this.http.post<{ok:boolean, access?:string, user?:any, csrf?:string}>(url, { email, password })
       .pipe(tap(res => {
         console.log("[AuthService] signup response", res);
         if (res?.access) localStorage.setItem("token", res.access);
-        if (res?.user) localStorage.setItem("user", JSON.stringify(res.user));
+        if (res?.csrf) localStorage.setItem("csrf", res.csrf);
       }));
+  }
+
+  logout() {
+    localStorage.removeItem("token"); localStorage.removeItem("csrf");
   }
 }

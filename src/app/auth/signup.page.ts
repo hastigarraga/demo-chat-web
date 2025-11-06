@@ -12,16 +12,34 @@ import { AuthService } from "./auth.service";
   imports: [CommonModule, FormsModule]
 })
 export class SignupPage {
-  name=""; email=""; password=""; loading=false; error="";
+  name = "";
+  email = "";
+  password = "";
+  loading = false;
+  error = "";
 
   constructor(private auth: AuthService, private router: Router) {}
 
   submit() {
     if (this.loading) return;
-    this.loading = true; this.error = "";
-    this.auth.signup(this.name, this.email, this.password).subscribe({
+
+    const email = this.email.trim();
+    const password = this.password.trim();
+    if (!email || !password) {
+      this.error = "Completá email y password";
+      return;
+    }
+
+    this.loading = true;
+    this.error = "";
+
+    this.auth.signup(email, password).subscribe({
       next: () => this.router.navigateByUrl("/chat"),
-      error: (e) => { this.error = e?.error?.message || "Error de registro"; this.loading = false; }
+      error: (e) => {
+        // el backend devuelve { ok:false, error: "..." }
+        this.error = e?.error?.error || "Error de registro";
+        this.loading = false;
+      }
     });
   }
 }

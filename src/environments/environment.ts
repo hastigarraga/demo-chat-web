@@ -1,7 +1,7 @@
 export const environment = {
   production: false,
   API_BASE: "http://localhost:3000",
-  WITH_CREDENTIALS: false,
+  WITH_CREDENTIALS: true,   // <— ENCIÉNDELO
   USE_BEARER: true,
   PATHS: {
     login: "/auth/login",
