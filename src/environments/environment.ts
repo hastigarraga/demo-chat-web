@@ -9,6 +9,7 @@ export const environment = {
     threads_list: "/threads",
     threads_last: "/threads/last",
     thread_by_id: (id: string) => `/threads/${id}`,
-    messages: "/messages"
+    messages: "/messages",
+    utils_title: "/api/utils/generate-title",
   }
 };

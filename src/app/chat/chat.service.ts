@@ -1,6 +1,7 @@
 import { Injectable } from "@angular/core";
 import { HttpClient, HttpHeaders } from "@angular/common/http";
 import { environment } from "../../environments/environment";
+import { map } from "rxjs/operators";
 
 function readCookie(name: string): string | null {
   const m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/[-[\]{}()*+?.,\\^$|#\\s]/g, '\\$&') + '=([^;]*)'));
@@ -71,4 +72,15 @@ export class ChatService {
       headers: authHeaders(),
     });
   }
+
+  // ===== LLM: generar título temático corto =====
+  // Ajustá la ruta si montaste el router bajo /api (ej.: `${BASE}/api/utils/generate-title`)
+  generateSmartTitle(seed: string) {
+  return this.http.post<{ ok: boolean; title: string }>(
+    BASE + PATHS.utils_title,
+    { seed },
+    { withCredentials: true, headers: authHeaders() }
+  ).pipe(map(r => (r?.title ?? "").trim()));
+}
+
 }

@@ -20,15 +20,16 @@ export class ChatPage implements OnInit {
   input=""; sending=false;
   @ViewChild("bottom") bottom!: ElementRef<HTMLDivElement>;
 
+  // evita renombrar dos veces el mismo hilo
+  private _autoRenamed = new Set<string>();
+
   constructor(private api: ChatService, private router: Router) {}
 
   ngOnInit(){ this.bootstrap(); }
 
   bootstrap(){
-    console.log("[ChatPage] bootstrap");
     this.api.listThreads().subscribe({
       next: res => {
-        console.log("[ChatPage] threads", res);
         this.threads = res.rows || [];
         this.ensureActive();
       },
@@ -40,7 +41,6 @@ export class ChatPage implements OnInit {
     if (this.current) { this.loadMessages(this.current._id || this.current.id); return; }
     this.api.lastActive().subscribe({
       next: res => {
-        console.log("[ChatPage] lastActive", res);
         this.current = res.row;
         if (this.current) this.loadMessages(this.current._id || this.current.id);
       },
@@ -49,13 +49,11 @@ export class ChatPage implements OnInit {
   }
 
   loadMessages(id:string){
-    console.log("[ChatPage] loadMessages", id);
     this.api.getThread(id).subscribe({
       next: res => {
-        console.log("[ChatPage] getThread", res);
         this.current = res.row;
         this.messages = res.messages || [];
-        setTimeout(()=>this.bottom?.nativeElement?.scrollIntoView({behavior:"smooth"}), 50);
+        setTimeout(()=>this.bottom?.nativeElement?.scrollIntoView({behavior:"smooth"}), 30);
       },
       error: err => console.error("[ChatPage] getThread error", err)
     });
@@ -72,9 +70,10 @@ export class ChatPage implements OnInit {
   newThread(){
     this.api.createThread().subscribe({
       next: res => {
-        console.log("[ChatPage] newThread", res);
-        this.threads.unshift(res.row);
-        this.select(res.row);
+        const row = res.row;
+        if (!row) return;
+        this.threads = [row, ...this.threads];
+        this.select(row);
       },
       error: err => console.error("[ChatPage] newThread error", err)
     });
@@ -87,8 +86,13 @@ export class ChatPage implements OnInit {
     const id = t._id || t.id;
     this.api.renameThread(id, title).subscribe({
       next: _ => {
-        t.title = title;
-        console.log("[ChatPage] renamed", id, title);
+        // actualizar item en lista
+        const idx = this.threads.findIndex(x => (x._id || x.id) === id);
+        if (idx >= 0) this.threads = this.threads.map((x,i)=> i===idx? { ...x, title } : x);
+        // sincronizar si es el actual
+        if (this.current && (this.current._id === id || this.current.id === id)) {
+          this.current = { ...this.current, title };
+        }
       },
       error: err => console.error("[ChatPage] rename error", err)
     });
@@ -99,10 +103,11 @@ export class ChatPage implements OnInit {
     if (!confirm("¿Eliminar este chat?")) return;
     this.api.deleteThread(id).subscribe({
       next: _ => {
-        console.log("[ChatPage] deleted", id);
         this.threads = this.threads.filter(x => (x._id||x.id) !== id);
-        this.current = null; this.messages = [];
-        this.ensureActive();
+        if (this.current && (this.current._id === id || this.current.id === id)) {
+          this.current = null; this.messages = [];
+          this.ensureActive();
+        }
       },
       error: err => console.error("[ChatPage] delete error", err)
     });
@@ -113,7 +118,6 @@ export class ChatPage implements OnInit {
     if (!text || this.sending) return;
     this.sending = true;
     const id = this.current?._id || this.current?.id || null;
-    console.log("[ChatPage] send", { id, text });
 
     // UI optimista
     const prev = this.messages.slice();
@@ -122,12 +126,30 @@ export class ChatPage implements OnInit {
 
     this.api.sendMessage(id, text).subscribe({
       next: res => {
-        console.log("[ChatPage] sendMessage response", res);
-        this.current = res.thread || this.current;
+        // Actualizar estado local SIN relanzar bootstrap (evita pisadas/parpadeo)
+        const newThread = res.thread || this.current;
+        if (newThread) {
+          this.current = newThread;
+          const tid = this.current._id || this.current.id;
+          const idx = this.threads.findIndex(x => (x._id||x.id) === tid);
+          if (idx >= 0) {
+            this.threads = this.threads.map((x,i)=> i===idx? { ...x, ...newThread } : x);
+          } else {
+            this.threads = [newThread, ...this.threads];
+          }
+        }
         this.messages = res.messages || this.messages;
         this.input = ""; this.sending = false;
         setTimeout(()=>this.bottom?.nativeElement?.scrollIntoView({behavior:"smooth"}), 10);
-        this.bootstrap();
+
+        // Semilla: preferí la PRIMERA RESPUESTA del asistente para contexto semántico
+        const firstAssistant = (this.messages || []).find(m => m?.role === "assistant" && (m.content||"").trim());
+        const seedAnswer = String(firstAssistant?.content || "").trim();
+        const seedUser   = String(text || "").trim();
+        const seed = (seedAnswer ? `Pregunta: ${seedUser}\nRespuesta: ${seedAnswer}` : seedUser).slice(0, 2000);
+
+        // Renombrado automático SOLO con LLM (sin previews derivados)
+        this.autoRenameIfNeededLLM(this.current, seed);
       },
       error: err => {
         console.error("[ChatPage] send error", err);
@@ -142,34 +164,60 @@ export class ChatPage implements OnInit {
     this.router.navigateByUrl('/auth');
   }
 
-    // ===== Títulos =====
+  // ===== Títulos (sidebar) =====
+  // Importante: NO generamos previews a partir del contenido para evitar “frases recortadas”.
   titleOf(t: any): string {
-    // si ya tiene, usalo
     const ready = (t?.title || "").trim();
-    if (ready) return ready;
-
-    // si es el hilo activo, intenta usar el primer mensaje del usuario
-    const isCurrent = (t?._id || t?.id) === (this.current?._id || this.current?.id);
-    if (isCurrent && Array.isArray(this.messages) && this.messages.length) {
-      const firstUser = this.messages.find(m => m?.role === "user" && (m.content || "").trim());
-      if (firstUser) return this.makeTitle(String(firstUser.content));
-    }
-
+    const isPlaceholder = /^nuevo chat$/i.test(ready);
+    if (ready && !isPlaceholder) return ready;
     return "Nuevo chat";
   }
 
-  private makeTitle(src: string): string {
-    let s = (src || "").trim().replace(/\s+/g, " ");
-    if (!s) return "Nuevo chat";
-    s = s.charAt(0).toUpperCase() + s.slice(1);
-    if (s.length > 48) {
-      const cut = s.slice(0, 48);
-      const i = Math.max(cut.lastIndexOf(" "), 38);
-      s = cut.slice(0, i > 0 ? i : 48).trim() + "…";
-    }
-    return s;
+  // ===== Auto-rename con ayuda del LLM =====
+  private autoRenameIfNeededLLM(thread: any, seed: string) {
+    const id = thread?._id || thread?.id;
+    if (!id) return;
+
+    if (this._autoRenamed.has(id)) return; // ya intentado
+    const raw = (thread?.title || "").trim();
+    const isPlaceholder = /^nuevo chat$/i.test(raw);
+    if (raw && !isPlaceholder) return;
+
+    this._autoRenamed.add(id);
+    this.api.generateSmartTitle(seed).subscribe({
+      next: (generated: string) => {
+        const title = String(generated ?? "").trim();
+        // si el LLM no devolvió nada usable, no “adivinamos” → dejamos placeholder
+        if (!title || /^nuevo chat$/i.test(title)) {
+          this._autoRenamed.delete(id);
+          return;
+        }
+        this.persistTitle(id, title);
+      },
+      error: (err) => {
+        console.error("[ChatPage] LLM title error", err);
+        this._autoRenamed.delete(id);
+      }
+    });
   }
 
+  private persistTitle(id: string, title: string) {
+    this.api.renameThread(id, title).subscribe({
+      next: _ => {
+        // actualizar hilo actual
+        if (this.current && (this.current._id === id || this.current.id === id)) {
+          this.current = { ...this.current, title };
+        }
+        // actualizar en lista
+        const idx = this.threads.findIndex(x => (x._id || x.id) === id);
+        if (idx >= 0) this.threads = this.threads.map((x, i) => i === idx ? { ...x, title } : x);
+      },
+      error: err => {
+        console.error("[ChatPage] persist title error", err);
+        this._autoRenamed.delete(id);
+      }
+    });
+  }
 
-  trackByIdx(_:number, m:any){ return m?.id || `${m.role}:${m.content?.slice(0,12)}`; }
+  trackByIdx(_:number, m:any){ return m?._id || m?.id || `${m.role}:${(m.content||"").slice(0,12)}`; }
 }
