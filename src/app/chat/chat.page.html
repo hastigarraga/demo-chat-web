@@ -15,10 +15,13 @@
             (click)="select(t)">
           <div class="t-title">{{ titleOf(t) }}</div>
           <div class="t-meta">{{ (t.updatedAt || t.createdAt) | localTz:'dd/MM/yyyy HH:mm' }}</div>
-          <div class="t-actions">
-            <button type="button" class="btn-mini" (click)="renameThread(t); $event.stopPropagation()">Renombrar</button>
-            <button type="button" class="btn-mini" (click)="removeThread(t); $event.stopPropagation()">Borrar</button>
-          </div>
+
+          <!-- Botón tres puntitos (hover) -->
+          <button type="button"
+                  class="btn-ellipsis"
+                  (click)="openMenu($event, t)">
+            ⋯
+          </button>
         </li>
       </ul>
     </div>
@@ -43,4 +46,17 @@
       <button type="button" (click)="send()" [disabled]="sending">Enviar</button>
     </div>
   </section>
+</div>
+
+<!-- Menú contextual FIXED (fuera del sidebar) -->
+<div class="ctx-menu"
+     *ngIf="menuOpenId"
+     [ngStyle]="{ top: menuTop + 'px', left: menuLeft + 'px' }"
+     (click)="$event.stopPropagation()">
+  <button type="button" class="mi" (click)="renameThread(menuThreadRef); closeMenus()">
+    Cambiar el nombre
+  </button>
+  <button type="button" class="mi danger" (click)="removeThread(menuThreadRef); closeMenus()">
+    Eliminar
+  </button>
 </div>

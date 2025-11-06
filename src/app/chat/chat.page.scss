@@ -11,7 +11,7 @@
 }
 
 .sidebar {
-  height:100dvh;                 /* fija el alto de la barra */
+  height:100dvh;
   border-right:1px solid #1d2230;
   display:flex; flex-direction:column;
   min-width:0;
@@ -22,21 +22,61 @@
 .btn-logout { padding:6px 10px; border-radius:8px; border:1px solid #2a3346; background:#121621; color:#9fb0c8; cursor:pointer; }
 
 .threads-scroll {
-  flex:1 1 auto;                 /* ocupa el resto del sidebar */
+  flex:1 1 auto;
   overflow:auto;
   padding:8px 12px 16px;
 }
 .threads { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; }
 .threads > li {
-  border:1px solid #1d2230; border-radius:12px; padding:10px; background:#0f1218; cursor:pointer;
+  border:1px solid #1d2230; border-radius:12px;
+  padding:10px 40px 10px 10px; /* espacio a la derecha para el botón */
+  background:#0f1218; cursor:pointer;
+  position: relative;
 }
 .threads > li.active { border-color:#355fff; }
 .t-title { font-weight:600; color:#e7edf6; }
 .t-meta { font-size:12px; color:#9fb0c8; margin-top:2px; }
-.t-actions { display:flex; gap:8px; margin-top:8px; }
-.btn-mini { background:#0b0e13; color:#cfd9ec; border:1px solid #2a3346; border-radius:8px; padding:4px 8px; cursor:pointer; }
 
-.main { display:flex; flex-direction:column; min-width:0; min-height:0; } /* min-height:0 permite que .messages scrollee */
+/* Botón tres puntitos — a la derecha y visible solo en hover */
+.btn-ellipsis {
+  position:absolute;
+  top:50%; right:8px; transform:translateY(-50%);
+  width:28px; height:28px;
+  line-height:26px; text-align:center;
+  border:none; border-radius:6px;
+  background:transparent; color:#9fb0c8; cursor:pointer;
+
+  opacity:0; pointer-events:none; transition:opacity .12s ease;
+}
+.threads > li:hover .btn-ellipsis,
+.threads > li.active .btn-ellipsis {
+  opacity:1; pointer-events:auto;
+}
+.btn-ellipsis:hover { background:#1d2230; color:#e7edf6; }
+
+/* Menú contextual FIXED (fuera del sidebar, sobre el chat) */
+.ctx-menu {
+  position: fixed;          /* clave para que no lo recorte el sidebar */
+  min-width: 220px;
+  background:#0f1218;
+  border:1px solid #1d2230;
+  box-shadow: 0 8px 24px rgba(0,0,0,.45);
+  border-radius:10px;
+  padding:6px;
+  z-index: 1000;            /* por encima del chat */
+}
+.mi {
+  width:100%;
+  display:block;
+  padding:8px 10px;
+  background:transparent; border:none; border-radius:8px;
+  color:#e7edf6; text-align:left; cursor:pointer;
+}
+.mi:hover { background:#1a2232; }
+.mi.danger { color:#f87171; }
+.mi.danger:hover { background:#3b1f1f; }
+
+.main { display:flex; flex-direction:column; min-width:0; min-height:0; }
 .messages {
   flex:1 1 auto;
   overflow:auto;
@@ -57,7 +97,7 @@
   padding:12px 14px;
   border-top:1px solid #1d2230;
   background:#0f1218;
-  position:sticky; bottom:0;     /* fijo al bottom */
+  position:sticky; bottom:0;
 }
 .composer input {
   flex:1 1 auto; min-width:0; border:1px solid #2a3346; background:#0b0e13; color:#e7edf6; border-radius:10px; padding:12px 14px; outline:none;
@@ -66,18 +106,15 @@
 .composer button { padding:10px 14px; border-radius:10px; border:0; background:#2d56ff; color:#fff; font-weight:600; cursor:pointer; }
 .composer button[disabled]{ opacity:.6; cursor:default; }
 
-/* Ocultar barras de scroll, mantener desplazamiento */
+/* Ocultar barras de scroll */
 .messages,
 .threads-scroll {
   overflow: auto;
-  /* Firefox */
   scrollbar-width: none;
-  /* IE/Edge heredado */
   -ms-overflow-style: none;
 }
 .messages::-webkit-scrollbar,
 .threads-scroll::-webkit-scrollbar {
-  /* Chrome / Safari / Edge (Blink/WebKit) */
   width: 0;
   height: 0;
   display: none;

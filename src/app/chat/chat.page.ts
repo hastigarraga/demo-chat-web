@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, ElementRef } from "@angular/core";
+import { Component, OnInit, ViewChild, ElementRef, HostListener } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { ChatService } from "./chat.service";
@@ -23,9 +23,35 @@ export class ChatPage implements OnInit {
   // evita renombrar dos veces el mismo hilo
   private _autoRenamed = new Set<string>();
 
+  // menú contextual (fixed)
+  menuOpenId: string | null = null;
+  menuTop = 0;
+  menuLeft = 0;
+  menuThreadRef: any = null;
+
   constructor(private api: ChatService, private router: Router) {}
 
   ngOnInit(){ this.bootstrap(); }
+
+  // cerrar menú con click afuera / ESC / scroll / resize
+  @HostListener('document:click') onDocClick() { this.closeMenus(); }
+  @HostListener('document:keydown.escape') onEsc() { this.closeMenus(); }
+  @HostListener('window:scroll') onScroll() { if (this.menuOpenId) this.closeMenus(); }
+  @HostListener('window:resize') onResize() { if (this.menuOpenId) this.closeMenus(); }
+
+  closeMenus(){ this.menuOpenId = null; this.menuThreadRef = null; }
+
+  openMenu(ev: MouseEvent, t: any){
+    ev.stopPropagation();
+    const btn = ev.currentTarget as HTMLElement;
+    const r = btn.getBoundingClientRect();
+    // posición FIXED a la derecha del botón (8px)
+    this.menuTop  = r.top + window.scrollY - 4;     // leve ajuste vertical
+    this.menuLeft = r.right + window.scrollX + 8;   // fuera del sidebar
+    const id = t._id || t.id;
+    this.menuOpenId = this.menuOpenId === id ? null : id;
+    this.menuThreadRef = t;
+  }
 
   bootstrap(){
     this.api.listThreads().subscribe({
@@ -86,10 +112,8 @@ export class ChatPage implements OnInit {
     const id = t._id || t.id;
     this.api.renameThread(id, title).subscribe({
       next: _ => {
-        // actualizar item en lista
         const idx = this.threads.findIndex(x => (x._id || x.id) === id);
         if (idx >= 0) this.threads = this.threads.map((x,i)=> i===idx? { ...x, title } : x);
-        // sincronizar si es el actual
         if (this.current && (this.current._id === id || this.current.id === id)) {
           this.current = { ...this.current, title };
         }
@@ -126,29 +150,22 @@ export class ChatPage implements OnInit {
 
     this.api.sendMessage(id, text).subscribe({
       next: res => {
-        // Actualizar estado local SIN relanzar bootstrap (evita pisadas/parpadeo)
         const newThread = res.thread || this.current;
         if (newThread) {
           this.current = newThread;
           const tid = this.current._id || this.current.id;
           const idx = this.threads.findIndex(x => (x._id||x.id) === tid);
-          if (idx >= 0) {
-            this.threads = this.threads.map((x,i)=> i===idx? { ...x, ...newThread } : x);
-          } else {
-            this.threads = [newThread, ...this.threads];
-          }
+          if (idx >= 0) this.threads = this.threads.map((x,i)=> i===idx? { ...x, ...newThread } : x);
+          else this.threads = [newThread, ...this.threads];
         }
         this.messages = res.messages || this.messages;
         this.input = ""; this.sending = false;
         setTimeout(()=>this.bottom?.nativeElement?.scrollIntoView({behavior:"smooth"}), 10);
 
-        // Semilla: preferí la PRIMERA RESPUESTA del asistente para contexto semántico
         const firstAssistant = (this.messages || []).find(m => m?.role === "assistant" && (m.content||"").trim());
         const seedAnswer = String(firstAssistant?.content || "").trim();
         const seedUser   = String(text || "").trim();
         const seed = (seedAnswer ? `Pregunta: ${seedUser}\nRespuesta: ${seedAnswer}` : seedUser).slice(0, 2000);
-
-        // Renombrado automático SOLO con LLM (sin previews derivados)
         this.autoRenameIfNeededLLM(this.current, seed);
       },
       error: err => {
@@ -164,8 +181,6 @@ export class ChatPage implements OnInit {
     this.router.navigateByUrl('/auth');
   }
 
-  // ===== Títulos (sidebar) =====
-  // Importante: NO generamos previews a partir del contenido para evitar “frases recortadas”.
   titleOf(t: any): string {
     const ready = (t?.title || "").trim();
     const isPlaceholder = /^nuevo chat$/i.test(ready);
@@ -173,12 +188,11 @@ export class ChatPage implements OnInit {
     return "Nuevo chat";
   }
 
-  // ===== Auto-rename con ayuda del LLM =====
   private autoRenameIfNeededLLM(thread: any, seed: string) {
     const id = thread?._id || thread?.id;
     if (!id) return;
 
-    if (this._autoRenamed.has(id)) return; // ya intentado
+    if (this._autoRenamed.has(id)) return;
     const raw = (thread?.title || "").trim();
     const isPlaceholder = /^nuevo chat$/i.test(raw);
     if (raw && !isPlaceholder) return;
@@ -187,7 +201,6 @@ export class ChatPage implements OnInit {
     this.api.generateSmartTitle(seed).subscribe({
       next: (generated: string) => {
         const title = String(generated ?? "").trim();
-        // si el LLM no devolvió nada usable, no “adivinamos” → dejamos placeholder
         if (!title || /^nuevo chat$/i.test(title)) {
           this._autoRenamed.delete(id);
           return;
@@ -204,11 +217,9 @@ export class ChatPage implements OnInit {
   private persistTitle(id: string, title: string) {
     this.api.renameThread(id, title).subscribe({
       next: _ => {
-        // actualizar hilo actual
         if (this.current && (this.current._id === id || this.current.id === id)) {
           this.current = { ...this.current, title };
         }
-        // actualizar en lista
         const idx = this.threads.findIndex(x => (x._id || x.id) === id);
         if (idx >= 0) this.threads = this.threads.map((x, i) => i === idx ? { ...x, title } : x);
       },
