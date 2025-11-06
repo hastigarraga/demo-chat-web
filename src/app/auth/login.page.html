@@ -1,14 +1,21 @@
-<div class="container">
-  <div class="card login">
+<div class="auth-wrap">
+  <div class="auth-card">
     <h1>Iniciar sesión</h1>
-    <form (ngSubmit)="submit()">
-      <label>Email</label>
-      <input type="email" [(ngModel)]="email" name="email" required />
-      <label>Password</label>
-      <input type="password" [(ngModel)]="password" name="password" required />
-      <button class="btn" type="submit" [disabled]="loading">{{ loading ? "Entrando…" : "Entrar" }}</button>
-      <p *ngIf="error" class="error">{{ error }}</p>
-      <p class="muted">¿No tenés cuenta? <a routerLink="/auth/signup">Crear cuenta</a></p>
+
+    <form (ngSubmit)="submit()" class="form">
+      <label class="label">Email</label>
+      <input class="input" type="email" name="email" [(ngModel)]="email" required autocomplete="email" />
+
+      <label class="label">Password</label>
+      <input class="input" type="password" name="password" [(ngModel)]="password" required autocomplete="current-password" />
+
+      <button class="btn" [disabled]="loading" type="submit">
+        {{ loading ? 'Entrando…' : 'Entrar' }}
+      </button>
     </form>
+
+    <p class="helper">¿No tenés cuenta?
+      <a class="link" [routerLink]="['/auth/signup']">Crear cuenta</a>
+    </p>
   </div>
 </div>
