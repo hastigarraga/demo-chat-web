@@ -2,7 +2,7 @@
   "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
   "version": 1,
   "projects": {
-    "demo-chat-web-clean": {
+    "demo-chat-web": {
       "projectType": "application",
       "root": "",
       "sourceRoot": "src",
@@ -11,40 +11,23 @@
         "build": {
           "builder": "@angular-devkit/build-angular:browser",
           "options": {
-            "outputPath": "dist/demo-chat-web-clean",
-            "index": "index.html",
+            "outputPath": "dist/demo-chat-web",
+            "index": "src/index.html",
             "main": "src/main.ts",
+            "polyfills": ["zone.js"],
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "scss",
             "assets": ["src/favicon.ico", "src/assets"],
             "styles": ["src/styles.scss"],
-            "scripts": [],
-            "aot": true
-          },
-          "configurations": {
-            "production": {
-              "budgets": [
-                { "type": "initial", "maximumWarning": "2.5mb", "maximumError": "3mb" },
-                { "type": "anyComponentStyle", "maximumWarning": "8kb", "maximumError": "12kb" }
-              ],
-              "outputHashing": "all",
-              "aot": true
-            }
+            "scripts": []
           }
         },
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
-          "options": {
-            "buildTarget": "demo-chat-web-clean:build"
-          },
-          "configurations": {
-            "production": {
-              "buildTarget": "demo-chat-web-clean:build:production"
-            }
-          }
+          "options": { "buildTarget": "demo-chat-web:build" }
         }
       }
     }
   },
-  "cli": { "analytics": false }
+  "defaultProject": "demo-chat-web"
 }

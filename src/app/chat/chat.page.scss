@@ -1,0 +1,15 @@
+.chat-layout{display:grid;grid-template-columns:300px 1fr;height:100vh}
+.sidebar{background:#0c0e13;border-right:1px solid var(--border);padding:.75rem}
+.sidebar-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem}
+.sidebar .new{background:#30343f;color:var(--text)}
+.threads{list-style:none;margin:0;padding:0}
+.threads li{padding:.6rem .5rem;border-radius:10px;border:1px solid transparent;cursor:pointer}
+.threads li.active,.threads li:hover{background:#151a22;border-color:var(--border)}
+.threads .title{font-weight:600}
+.threads .meta{color:var(--muted);font-size:.8rem}
+.chat{display:flex;flex-direction:column;padding:.75rem;gap:.75rem}
+.messages{flex:1;overflow:auto}
+.msg{display:grid;grid-template-columns:100px 1fr;gap:.5rem;padding:.5rem 0;border-bottom:1px dashed #232838}
+.msg .role{color:var(--muted);text-transform:uppercase;font-size:.75rem}
+.composer{display:flex;gap:.5rem;padding:.6rem}
+.composer input{flex:1;background:#0c0e13;color:var(--text);border:1px solid var(--border);border-radius:10px;padding:.6rem .8rem}

@@ -1,16 +1,9 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "types": [],
-    "resolveJsonModule": true
+    "outDir": "./dist/out-tsc/app",
+    "types": []
   },
   "files": ["src/main.ts"],
-  "include": ["src/**/*.ts"],
-  "exclude": ["src/**/*.spec.ts"],
-  "angularCompilerOptions": {
-    "useStandalone": true,
-    "strictInjectionParameters": true,
-    "strictInputAccessModifiers": true,
-    "strictTemplates": true
-  }
+  "include": ["src/**/*.d.ts"]
 }

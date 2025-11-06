@@ -1,17 +1,20 @@
-import 'zone.js';
-import { bootstrapApplication } from '@angular/platform-browser';
-import { Component } from '@angular/core';
-import { provideRouter, RouterOutlet } from '@angular/router';
-import { routes } from './app/app.routes';
+import { bootstrapApplication } from "@angular/platform-browser";
+import { provideRouter } from "@angular/router";
+import { provideHttpClient, withInterceptors } from "@angular/common/http";
+import { AppComponent } from "./app/app.component";
+import { routes } from "./app/app.routes";
+import { authInterceptor } from "./app/shared/auth.interceptor";
 
-(window as any).__API_BASE__ = 'http://localhost:3000';
+// Espera a que el DOM tenga <app-root> presente
+const start = () => bootstrapApplication(AppComponent, {
+  providers: [
+    provideRouter(routes),
+    provideHttpClient(withInterceptors([authInterceptor])),
+  ],
+}).catch(err => console.error("[bootstrap] error:", err));
 
-@Component({
-  selector: 'app-root',
-  standalone: true,
-  imports: [RouterOutlet],
-  template: `<router-outlet></router-outlet>`
-})
-class AppComponent {}
-
-bootstrapApplication(AppComponent, { providers: [provideRouter(routes)] });
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", start, { once: true });
+} else {
+  start();
+}

@@ -1,14 +1,9 @@
-import { Routes } from '@angular/router';
-import { ShellComponent } from './layout/shell.component';
-import { ChatPage } from './chat/chat.page';
-import { LoginPage } from './auth/login.page';
+import { Routes } from "@angular/router";
+import { authGuard } from "./shared/auth.guard";
 
 export const routes: Routes = [
-  { path: 'login', component: LoginPage }, // pantalla SPA
-  {
-    path: '',
-    component: ShellComponent,
-    children: [{ path: '', component: ChatPage }]
-  },
-  { path: '**', redirectTo: '' }
+  { path: "auth", loadChildren: () => import("./auth/auth.routes").then(m => m.routes) },
+  { path: "chat", canActivate: [authGuard], loadChildren: () => import("./chat/chat.routes").then(m => m.routes) },
+  { path: "", pathMatch: "full", redirectTo: "auth" },
+  { path: "**", redirectTo: "auth" }
 ];

@@ -1,0 +1,25 @@
+<aside class="sidebar card">
+  <header class="sidebar__header">
+    <button type="button" class="btn primary" (click)="onCreate()" [disabled]="busy" aria-label="Nuevo chat">
+      ＋ Nuevo chat
+    </button>
+  </header>
+
+  <nav class="threads" role="listbox" aria-label="Lista de hilos">
+    <div
+      *ngFor="let t of threads; trackBy: trackById"
+      class="thread"
+      [class.thread--active]="t._id === selectedId"
+      (click)="onSelect(t._id)"
+      tabindex="0"
+      role="option"
+      [attr.aria-selected]="t._id === selectedId"
+    >
+      <div class="thread__title" [title]="t.title">{{ t.title || 'Nuevo chat' }}</div>
+      <div class="thread__buttons">
+        <button type="button" class="btn ghost" (click)="onRename(t._id, t.title); $event.stopPropagation()" [disabled]="busy" aria-label="Renombrar">✎</button>
+        <button type="button" class="btn danger" (click)="onDelete(t._id); $event.stopPropagation()" [disabled]="busy" aria-label="Eliminar">🗑</button>
+      </div>
+    </div>
+  </nav>
+</aside>

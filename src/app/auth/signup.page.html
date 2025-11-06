@@ -1,0 +1,15 @@
+<div class="container">
+  <div class="card login">
+    <h1>Crear cuenta</h1>
+    <form (ngSubmit)="submit()">
+      <label>Nombre</label>
+      <input type="text" [(ngModel)]="name" name="name" required />
+      <label>Email</label>
+      <input type="email" [(ngModel)]="email" name="email" required />
+      <label>Password</label>
+      <input type="password" [(ngModel)]="password" name="password" required />
+      <button class="btn" type="submit" [disabled]="loading">{{ loading ? "Creando…" : "Crear cuenta" }}</button>
+      <p *ngIf="error" class="error">{{ error }}</p>
+    </form>
+  </div>
+</div>

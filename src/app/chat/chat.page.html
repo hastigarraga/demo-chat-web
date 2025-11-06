@@ -1,0 +1,31 @@
+<div class="chat-layout">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h3>Conversaciones</h3>
+      <button class="btn new" (click)="select({ id: null, messages: [] })">Nuevo</button>
+    </div>
+    <ul class="threads">
+      <li *ngFor="let t of threads; trackBy: trackById"
+          [class.active]="t.id === current?.id"
+          (click)="select(t)">
+        <div class="title">{{ t.title || ('Thread ' + (t.id || t._id)) }}</div>
+        <div class="meta">{{ (t.updatedAt || t.createdAt) | date:'short' }}</div>
+      </li>
+    </ul>
+  </aside>
+
+  <main class="chat">
+    <div class="messages card" *ngIf="current">
+      <div class="msg" *ngFor="let m of current.messages">
+        <div class="role">{{ m.role || m.author || 'user' }}</div>
+        <div class="content">{{ m.content || m.text }}</div>
+      </div>
+      <div #bottom></div>
+    </div>
+
+    <form class="composer card" (ngSubmit)="send()">
+      <input type="text" [(ngModel)]="input" name="input" placeholder="Escribe tu mensaje…" />
+      <button class="btn" type="submit" [disabled]="sending">{{ sending ? 'Enviando…' : 'Enviar' }}</button>
+    </form>
+  </main>
+</div>
