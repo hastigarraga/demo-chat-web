@@ -2,7 +2,7 @@ import { Component, OnInit, ViewChild, ElementRef } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { ChatService } from "./chat.service";
-
+import { Router } from '@angular/router';
 @Component({
   standalone: true,
   selector: "app-chat",
@@ -15,7 +15,7 @@ export class ChatPage implements OnInit {
   input=""; sending=false;
   @ViewChild("bottom") bottom!: ElementRef<HTMLDivElement>;
 
-  constructor(private api: ChatService) {}
+  constructor(private api: ChatService, private router: Router) {}
 
   ngOnInit(){ this.bootstrap(); }
 
@@ -131,6 +131,11 @@ export class ChatPage implements OnInit {
         this.sending=false;
       }
     });
+  }
+
+  logout() {
+    try { localStorage.removeItem('token'); } catch {}
+    this.router.navigateByUrl('/auth');
   }
 
   trackByIdx(_:number, m:any){ return m?.id || `${m.role}:${m.content?.slice(0,12)}`; }

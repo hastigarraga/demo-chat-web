@@ -1,39 +1,46 @@
-<div class="chat-layout">
+<div class="shell">
   <aside class="sidebar">
-    <div class="sidebar-header">
+    <div class="side-header">
       <h3>Conversaciones</h3>
-      <button class="btn new" (click)="newThread()">Nuevo</button>
+      <div class="side-actions">
+        <button type="button" class="btn-new" (click)="newThread()">Nuevo</button>
+        <button type="button" class="btn-logout" (click)="logout()">Salir</button>
+      </div>
     </div>
-    <ul class="threads">
-      <li *ngFor="let t of threads"
-          [class.active]="(t._id || t.id) === (current?._id || current?.id)"
-          (click)="select(t)">
-        <div class="title">{{ t.title || ('Thread ' + (t._id || t.id)) }}</div>
-        <div class="meta">{{ (t.updatedAt || t.createdAt) | date:'short' }}</div>
-        <div class="row-actions">
-          <button class="btn sm" (click)="$event.stopPropagation(); renameThread(t)">Renombrar</button>
-          <button class="btn sm" (click)="$event.stopPropagation(); removeThread(t)">Borrar</button>
-        </div>
-      </li>
-    </ul>
+
+    <div class="threads-scroll">
+      <ul class="threads">
+        <li *ngFor="let t of threads; trackBy: trackByIdx"
+            [class.active]="(t._id||t.id) === (current?._id || current?.id)"
+            (click)="select(t)">
+          <div class="t-title">{{ t.title || 'Nuevo chat' }}</div>
+          <div class="t-meta">{{ (t.updatedAt || t.createdAt) | date:'dd/MM/yyyy HH:mm' }}</div>
+          <div class="t-actions">
+            <button type="button" class="btn-mini" (click)="renameThread(t); $event.stopPropagation()">Renombrar</button>
+            <button type="button" class="btn-mini" (click)="removeThread(t); $event.stopPropagation()">Borrar</button>
+          </div>
+        </li>
+      </ul>
+    </div>
   </aside>
 
-  <section class="chat">
-    <div class="messages">
-      <div class="empty" *ngIf="!messages?.length">Sin mensajes. Escribí abajo.</div>
-      <div class="msg" *ngFor="let m of messages; trackBy: trackByIdx">
-        <div class="role">{{ m.role }}</div>
-        <div class="content">{{ m.content }}</div>
+  <section class="main">
+    <div class="messages" id="messages">
+      <div *ngFor="let m of messages; trackBy: trackByIdx"
+           class="msg"
+           [class.user]="m.role==='user'"
+           [class.assistant]="m.role==='assistant'">
+        <div class="bubble">{{ m.content }}</div>
       </div>
       <div #bottom></div>
     </div>
 
     <div class="composer">
       <input type="text"
-             placeholder="Escribe tu mensaje…"
              [(ngModel)]="input"
-             (keydown.enter)="send()"/>
-      <button class="btn send" (click)="send()" [disabled]="sending">Enviar</button>
+             (keydown.enter)="send(); $event.preventDefault()"
+             placeholder="Escribe tu mensaje…" />
+      <button type="button" (click)="send()" [disabled]="sending">Enviar</button>
     </div>
   </section>
 </div>
