@@ -3,12 +3,17 @@ import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { ChatService } from "./chat.service";
 import { Router } from '@angular/router';
+
+// ⬇️ Pipes locales
+import { LocalTzDatePipe } from "../shared/pipes/local-tz-date.pipe";
+import { ThreadTitlePipe } from "../shared/pipes/thread-title.pipe";
+
 @Component({
   standalone: true,
   selector: "app-chat",
   templateUrl: "./chat.page.html",
   styleUrls: ["./chat.page.scss"],
-  imports: [CommonModule, FormsModule]
+  imports: [CommonModule, FormsModule, LocalTzDatePipe, ThreadTitlePipe]
 })
 export class ChatPage implements OnInit {
   threads:any[]=[]; current:any=null; messages:any[]=[];
@@ -126,7 +131,6 @@ export class ChatPage implements OnInit {
       },
       error: err => {
         console.error("[ChatPage] send error", err);
-        // revertir placeholder
         this.messages = prev;
         this.sending=false;
       }
@@ -137,6 +141,35 @@ export class ChatPage implements OnInit {
     try { localStorage.removeItem('token'); } catch {}
     this.router.navigateByUrl('/auth');
   }
+
+    // ===== Títulos =====
+  titleOf(t: any): string {
+    // si ya tiene, usalo
+    const ready = (t?.title || "").trim();
+    if (ready) return ready;
+
+    // si es el hilo activo, intenta usar el primer mensaje del usuario
+    const isCurrent = (t?._id || t?.id) === (this.current?._id || this.current?.id);
+    if (isCurrent && Array.isArray(this.messages) && this.messages.length) {
+      const firstUser = this.messages.find(m => m?.role === "user" && (m.content || "").trim());
+      if (firstUser) return this.makeTitle(String(firstUser.content));
+    }
+
+    return "Nuevo chat";
+  }
+
+  private makeTitle(src: string): string {
+    let s = (src || "").trim().replace(/\s+/g, " ");
+    if (!s) return "Nuevo chat";
+    s = s.charAt(0).toUpperCase() + s.slice(1);
+    if (s.length > 48) {
+      const cut = s.slice(0, 48);
+      const i = Math.max(cut.lastIndexOf(" "), 38);
+      s = cut.slice(0, i > 0 ? i : 48).trim() + "…";
+    }
+    return s;
+  }
+
 
   trackByIdx(_:number, m:any){ return m?.id || `${m.role}:${m.content?.slice(0,12)}`; }
 }

@@ -13,8 +13,8 @@
         <li *ngFor="let t of threads; trackBy: trackByIdx"
             [class.active]="(t._id||t.id) === (current?._id || current?.id)"
             (click)="select(t)">
-          <div class="t-title">{{ t.title || 'Nuevo chat' }}</div>
-          <div class="t-meta">{{ (t.updatedAt || t.createdAt) | date:'dd/MM/yyyy HH:mm' }}</div>
+          <div class="t-title">{{ titleOf(t) }}</div>
+          <div class="t-meta">{{ (t.updatedAt || t.createdAt) | localTz:'dd/MM/yyyy HH:mm' }}</div>
           <div class="t-actions">
             <button type="button" class="btn-mini" (click)="renameThread(t); $event.stopPropagation()">Renombrar</button>
             <button type="button" class="btn-mini" (click)="removeThread(t); $event.stopPropagation()">Borrar</button>
