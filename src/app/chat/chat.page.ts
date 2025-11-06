@@ -109,16 +109,27 @@ export class ChatPage implements OnInit {
     this.sending = true;
     const id = this.current?._id || this.current?.id || null;
     console.log("[ChatPage] send", { id, text });
+
+    // UI optimista
+    const prev = this.messages.slice();
+    this.messages = [...prev, { role: "user", content: text }, { role: "assistant", content: "…" }];
+    setTimeout(()=>this.bottom?.nativeElement?.scrollIntoView({behavior:"smooth"}), 10);
+
     this.api.sendMessage(id, text).subscribe({
       next: res => {
         console.log("[ChatPage] sendMessage response", res);
         this.current = res.thread || this.current;
         this.messages = res.messages || this.messages;
         this.input = ""; this.sending = false;
-        setTimeout(()=>this.bottom?.nativeElement?.scrollIntoView({behavior:"smooth"}), 50);
+        setTimeout(()=>this.bottom?.nativeElement?.scrollIntoView({behavior:"smooth"}), 10);
         this.bootstrap();
       },
-      error: err => { console.error("[ChatPage] send error", err); this.sending=false; }
+      error: err => {
+        console.error("[ChatPage] send error", err);
+        // revertir placeholder
+        this.messages = prev;
+        this.sending=false;
+      }
     });
   }
 

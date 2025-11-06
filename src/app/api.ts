@@ -1,172 +1,111 @@
-// src/app/api.ts
-type Role = 'user' | 'assistant' | 'tool';
-export type Thread = { _id: string; title: string };
+// Única fuente de verdad para fetch: Bearer + CSRF + credentials: include.
+// Hidrata desde cookies y reintenta 1 vez en 401/403.
+
+export const environment = {
+  API_BASE: (window as any).__API_BASE__ || "http://localhost:3000",
+  WITH_CREDENTIALS: true,
+};
 
 export function apiBase(): string {
-  const w = (window as any);
-  const val = typeof w.__API_BASE__ === 'string' ? w.__API_BASE__ : '';
-  return String(val || '').trim().replace(/\/+$/, '');
+  return String(environment.API_BASE || "").trim().replace(/\/+$/, "");
 }
 
-let CSRF: string | null = null;
-export function setCsrf(token: string | null | undefined) { CSRF = token || null; }
-
 function readCookie(name: string): string | null {
-  // Escapa el nombre para uso seguro en RegExp
-  const safe = name.replace(/([.$?*|{}()[\]\\/+^])/g, '\\$1');
-  const pattern = new RegExp('(?:^|; )' + safe + '=([^;]*)');
-  const m = document.cookie.match(pattern);
+  const m = document.cookie.match(new RegExp(
+    '(?:^|; )' + name.replace(/[-[\]{}()*+?.,\\^$|#\\s]/g, '\\$&') + '=([^;]*)'
+  ));
   return m ? decodeURIComponent(m[1]) : null;
 }
 
-function baseInit(init: RequestInit): RequestInit {
-  const headers = new Headers(init.headers || {});
-  headers.set('accept', 'application/json, text/plain, */*');
-
-  const csrf = CSRF ?? readCookie('csrf') ?? readCookie('csrfToken') ?? readCookie('XSRF-TOKEN');
-  if (csrf) headers.set('x-csrf-token', csrf);
-
-  const token = localStorage.getItem('token');
-  if (token) headers.set('authorization', `Bearer ${token}`);
-
-  const final: RequestInit = { ...init, headers, credentials: 'include' };
-
-  // Si el body es JSON string y no hay content-type, setearlo
-  if (!headers.has('content-type') && typeof init.body === 'string') {
-    try { JSON.parse(init.body as string); headers.set('content-type', 'application/json'); } catch {}
+let CSRF: string | null = null;
+export function setCsrf(v: string | null | undefined) { CSRF = v || null; }
+export function setToken(t: string | null | undefined) { if (t) localStorage.setItem("token", String(t)); }
+export function getToken(): string | null {
+  let t = localStorage.getItem("token");
+  if (!t) {
+    const c = readCookie("access");
+    if (c) { try { localStorage.setItem("token", c); } catch {} ; t = c; console.log("[api] token hydrated from cookie"); }
   }
-  return final;
+  return t;
 }
 
-async function readBody(r: Response): Promise<any> {
-  const text = await r.text();
-  try { return JSON.parse(text); } catch { return text || null; }
-}
+type Opts = {
+  method?: "GET"|"POST"|"PUT"|"DELETE";
+  headers?: Record<string,string>;
+  body?: any;
+  parse?: "json"|"text"|"none";
+  signal?: AbortSignal;
+};
 
-/* ---------- helpers JSON ---------- */
-export async function getJson<T = any>(path: string): Promise<T> {
-  const base = apiBase();
-  const r = await fetch(`${base}${path}`, baseInit({ method: 'GET' }));
-  const body = await readBody(r);
-  if (!r.ok) throw new Error((body && (body.error || body.message)) || `HTTP ${r.status}`);
-  const cookieCsrf = readCookie('csrf'); if (cookieCsrf) setCsrf(cookieCsrf);
-  return body as T;
-}
-
-export async function postJson<T = any>(path: string, payload: unknown): Promise<T> {
-  const base = apiBase();
-  const r = await fetch(`${base}${path}`, baseInit({ method: 'POST', body: JSON.stringify(payload) }));
-  const body = await readBody(r);
-  if (!r.ok) throw new Error((body && (body.error || body.message)) || `HTTP ${r.status}`);
-  const cookieCsrf = readCookie('csrf'); if (cookieCsrf) setCsrf(cookieCsrf);
-  return body as T;
-}
-
-/* ---------- AUTH ---------- */
-export async function login(email: string, password: string) {
-  const data = (await postJson<{ ok?: boolean; token?: string; csrf?: string }>('/auth/login', { email, password })
-                  .catch(() => postJson('/login', { email, password }))) as { token?: string; csrf?: string } | {};
-  const token = (data as any)?.token as string | undefined;
-  const csrf = readCookie('csrf') || (data as any)?.csrf || null;
-  if (token) localStorage.setItem('token', token);
-  if (csrf) setCsrf(csrf);
-  return data;
-}
-
-export async function register(email: string, password: string) {
-  const data = (await postJson<{ ok?: boolean; token?: string; csrf?: string }>('/auth/signup', { email, password })
-                  .catch(() => postJson('/signup', { email, password }))) as { token?: string; csrf?: string } | {};
-  const token = (data as any)?.token as string | undefined;
-  const csrf = readCookie('csrf') || (data as any)?.csrf || null;
-  if (token) localStorage.setItem('token', token);
-  if (csrf) setCsrf(csrf);
-  return data;
-}
-
-export async function logout(): Promise<void> {
-  const base = apiBase();
-  try { await fetch(`${base}/auth/logout`, baseInit({ method: 'POST' })); } catch {}
-  localStorage.removeItem('token');
-}
-
-/* ---------- THREADS ---------- */
-export async function listThreads(): Promise<Thread[]> {
-  const r = await getJson<{ ok: boolean; rows: Thread[] }>('/threads')
-         .catch(() => getJson<{ ok: boolean; rows: Thread[] }>('/api/threads'));
-  return r?.rows ?? [];
-}
-
-export async function createThread(title?: string): Promise<Thread> {
-  const r = await postJson<{ ok: boolean; id: string }>('/threads', { title: title || 'Nuevo chat' })
-         .catch(() => postJson('/api/threads', { title: title || 'Nuevo chat' }));
-  return { _id: String((r as any)?.id), title: title || 'Nuevo chat' };
-}
-
-export async function updateThreadTitle(id: string, title: string): Promise<void> {
-  const base = apiBase();
-  await fetch(`${base}/threads/${encodeURIComponent(id)}`, baseInit({ method: 'PATCH', body: JSON.stringify({ title }) }))
-    .catch(async () => { await fetch(`${base}/api/threads/${encodeURIComponent(id)}`, baseInit({ method: 'PATCH', body: JSON.stringify({ title }) })); });
-}
-
-export async function deleteThread(id: string): Promise<void> {
-  const base = apiBase();
-  await fetch(`${base}/threads/${encodeURIComponent(id)}`, baseInit({ method: 'DELETE' }))
-    .catch(async () => { await fetch(`${base}/api/threads/${encodeURIComponent(id)}`, baseInit({ method: 'DELETE' })); });
-}
-
-/* ---------- MESSAGES ---------- */
-export async function listMessages(threadId: string) {
-  const qs = threadId ? `?threadId=${encodeURIComponent(threadId)}` : '';
-  return await getJson<{ rows: { role: Role, content: string }[] }>(`/messages${qs}`)
-    .catch(() => getJson<{ rows: { role: Role, content: string }[] }>(`/api/messages${qs}`));
-}
-
-export async function postMessage(threadId: string, role: Role, content: string, toolMeta?: any) {
-  try { await postJson('/messages', { threadId, role, content, toolMeta }); }
-  catch { await postJson('/api/messages', { threadId, role, content, toolMeta }); }
-}
-
-/* ---------- Streaming ---------- */
-export async function chatStream(args: {
-  threadId: string; message: string; onDelta: (t: string) => void; signal?: AbortSignal;
-}) {
-  const base = apiBase();
-  const headers = new Headers();
-  headers.set('accept', 'text/event-stream');
-  headers.set('content-type', 'application/json');
-  const csrf = CSRF ?? readCookie('csrf') ?? readCookie('csrfToken') ?? readCookie('XSRF-TOKEN');
-  if (csrf) headers.set('x-csrf-token', csrf);
-  const token = localStorage.getItem('token');
-  if (token) headers.set('authorization', `Bearer ${token}`);
-
-  const payload = JSON.stringify({ threadId: args.threadId, content: args.message });
-  for (const path of ['/chat', '/api/chat']) {
-    try {
-      const r = await fetch(`${base}${path}`, { method: 'POST', body: payload, headers, credentials: 'include', signal: args.signal });
-      if (!r.ok || !r.body) continue;
-      const reader = r.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        let idx: number;
-        while ((idx = buffer.indexOf('\n\n')) >= 0) {
-          const chunk = buffer.slice(0, idx).trim(); buffer = buffer.slice(idx + 2);
-          if (!chunk) continue;
-          const line = chunk.split('\n').find(l => l.startsWith('data:'));
-          if (!line) continue;
-          const json = line.slice(5).trim();
-          try {
-            const evt = JSON.parse(json);
-            if (evt?.type === 'delta') args.onDelta(String(evt.value ?? ''));
-            if (evt?.type === 'done') return;
-          } catch { args.onDelta(json); }
-        }
-      }
-      return;
-    } catch {}
+function buildInit(method: string, headers: Record<string,string>, body: any, signal?: AbortSignal): RequestInit {
+  const init: RequestInit = {
+    method,
+    headers,
+    credentials: environment.WITH_CREDENTIALS ? "include" : "same-origin",
+    signal,
+  };
+  if (body !== undefined && method !== "GET") {
+    init.body = typeof body === "string" ? body : JSON.stringify(body);
   }
-  throw new Error('Streaming no disponible');
+  return init;
 }
+
+async function doOnce(url: string, method: string, body: any, extraHeaders?: Record<string,string>) {
+  const token = getToken();
+  const csrf  = CSRF || readCookie("csrf") || null;
+
+  const headers: Record<string,string> = {
+    "content-type": "application/json",
+    ...(extraHeaders || {}),
+  };
+  if (token) headers["authorization"] = `Bearer ${token}`;
+  if (csrf)  headers["x-csrf-token"] = csrf;
+
+  console.log(`[api] ${method} ${url}`, { hasBearer: !!token, hasCsrf: !!csrf });
+  const res = await fetch(url, buildInit(method, headers, body));
+  return { res, headers };
+}
+
+async function _fetch(path: string, opts: Opts = {}) {
+  const url = `${apiBase()}${path.startsWith("/") ? "" : "/"}${path}`;
+  const method = opts.method || "GET";
+  const parse  = opts.parse  ?? "json";
+
+  let { res, headers } = await doOnce(url, method, opts.body, opts.headers);
+
+  if (res.status === 401 || res.status === 403) {
+    // refrescar desde cookies y reintentar 1 vez
+    const freshToken = readCookie("access");
+    const freshCsrf  = readCookie("csrf");
+    if (freshToken) { headers["authorization"] = `Bearer ${freshToken}`; try { localStorage.setItem("token", freshToken); } catch {} }
+    if (freshCsrf)  { headers["x-csrf-token"] = freshCsrf; setCsrf(freshCsrf); }
+    console.warn("[api] retrying once after", res.status);
+    res = await fetch(url, buildInit(method, headers, opts.body));
+  }
+
+  if (!res.ok) {
+    const text = await res.text().catch(()=> "");
+    throw Object.assign(new Error(`HTTP ${res.status}: ${text}`), { status: res.status, url, ok:false, body: text });
+  }
+  if (parse === "text") return await res.text();
+  if (parse === "none") return undefined;
+  return await res.json();
+}
+
+export const api = {
+  raw: _fetch,
+  async login(email: string, password: string) {
+    const j = await _fetch("/auth/login", { method: "POST", body: { email, password }});
+    setToken(j?.access || readCookie("access"));
+    setCsrf(j?.csrf || readCookie("csrf"));
+    console.log("[api] login ok", { hasToken: !!getToken(), hasCsrf: !!(CSRF || readCookie("csrf")) });
+    return j;
+  },
+  async signup(email: string, password: string) {
+    const j = await _fetch("/auth/signup", { method: "POST", body: { email, password }});
+    setToken(j?.access || readCookie("access"));
+    setCsrf(j?.csrf || readCookie("csrf"));
+    console.log("[api] signup ok", { hasToken: !!getToken(), hasCsrf: !!(CSRF || readCookie("csrf")) });
+    return j;
+  },
+};
