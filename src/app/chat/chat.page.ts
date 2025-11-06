@@ -20,7 +20,6 @@ export class ChatPage implements OnInit {
   input=""; sending=false;
   @ViewChild("bottom") bottom!: ElementRef<HTMLDivElement>;
 
-  // evita renombrar dos veces el mismo hilo
   private _autoRenamed = new Set<string>();
 
   // menú contextual (fixed)
@@ -29,14 +28,19 @@ export class ChatPage implements OnInit {
   menuLeft = 0;
   menuThreadRef: any = null;
 
+  // UI sidebar y cuenta
+  sidebarCollapsed = localStorage.getItem('ui.sidebarCollapsed') === '1';
+  accountMenuOpen = false;
+  userName = 'Hernán';
+  userEmail = 'sesión';
+
   constructor(private api: ChatService, private router: Router) {}
 
   ngOnInit(){ this.bootstrap(); }
 
-  // cerrar menú con click afuera / ESC / scroll / resize
-  @HostListener('document:click') onDocClick() { this.closeMenus(); }
-  @HostListener('document:keydown.escape') onEsc() { this.closeMenus(); }
-  @HostListener('window:scroll') onScroll() { if (this.menuOpenId) this.closeMenus(); }
+  // cerrar menú con click afuera / ESC / resize; también cierra menú de cuenta
+  @HostListener('document:click') onDocClick() { this.closeMenus(); this.accountMenuOpen = false; }
+  @HostListener('document:keydown.escape') onEsc() { this.closeMenus(); this.accountMenuOpen = false; }
   @HostListener('window:resize') onResize() { if (this.menuOpenId) this.closeMenus(); }
 
   closeMenus(){ this.menuOpenId = null; this.menuThreadRef = null; }
@@ -51,6 +55,21 @@ export class ChatPage implements OnInit {
     const id = t._id || t.id;
     this.menuOpenId = this.menuOpenId === id ? null : id;
     this.menuThreadRef = t;
+  }
+
+  toggleSidebar(){
+    this.sidebarCollapsed = !this.sidebarCollapsed;
+    localStorage.setItem('ui.sidebarCollapsed', this.sidebarCollapsed ? '1' : '0');
+  }
+
+  toggleAccountMenu(ev: MouseEvent){
+    ev.stopPropagation();
+    this.accountMenuOpen = !this.accountMenuOpen;
+  }
+
+  get userInitial(): string {
+    const s = (this.userName || this.userEmail || 'U').trim();
+    return s ? s[0].toUpperCase() : 'U';
   }
 
   bootstrap(){

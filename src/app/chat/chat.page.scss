@@ -9,6 +9,9 @@
   grid-template-columns:320px 1fr;
   gap:0;
 }
+/* estado colapsado */
+.shell.collapsed { grid-template-columns:0 1fr; }
+.shell.collapsed .sidebar { width:0; overflow:hidden; border:0; padding:0; }
 
 .sidebar {
   height:100dvh;
@@ -17,9 +20,11 @@
   min-width:0;
 }
 .side-header { display:flex; align-items:center; justify-content:space-between; padding:12px 14px; }
-.side-actions { display:flex; gap:8px; }
+.side-actions { display:flex; gap:8px; align-items:center;width:100% }
 .btn-new { padding:6px 10px; border-radius:8px; border:1px solid #2a3346; background:#0b0e13; color:#dbe7f6; cursor:pointer; }
-.btn-logout { padding:6px 10px; border-radius:8px; border:1px solid #2a3346; background:#121621; color:#9fb0c8; cursor:pointer; }
+/* botón para ocultar sidebar */
+.btn-hide { padding:6px 8px;margin-left:auto; border-radius:8px; border:1px solid #2a3346; background:#0b0e13; color:#9fb0c8; cursor:pointer; }
+.btn-hide:hover { background:#121826; color:#e7edf6; }
 
 .threads-scroll {
   flex:1 1 auto;
@@ -45,7 +50,6 @@
   line-height:26px; text-align:center;
   border:none; border-radius:6px;
   background:transparent; color:#9fb0c8; cursor:pointer;
-
   opacity:0; pointer-events:none; transition:opacity .12s ease;
 }
 .threads > li:hover .btn-ellipsis,
@@ -56,14 +60,14 @@
 
 /* Menú contextual FIXED (fuera del sidebar, sobre el chat) */
 .ctx-menu {
-  position: fixed;          /* clave para que no lo recorte el sidebar */
+  position: fixed;
   min-width: 220px;
   background:#0f1218;
   border:1px solid #1d2230;
   box-shadow: 0 8px 24px rgba(0,0,0,.45);
   border-radius:10px;
   padding:6px;
-  z-index: 1000;            /* por encima del chat */
+  z-index: 1000;
 }
 .mi {
   width:100%;
@@ -119,3 +123,40 @@
   height: 0;
   display: none;
 }
+
+/* Bloque cuenta abajo */
+.account{
+  margin-top:auto; padding:12px; border-top:1px solid #1d2230;
+  display:flex; align-items:center; gap:10px; cursor:pointer; position:relative;
+}
+.account:hover{ background:#121826; }
+.account .avatar{
+  width:28px; height:28px; border-radius:50%; background:#1a2232;
+  display:flex; align-items:center; justify-content:center; font-weight:600; color:#e7edf6;
+}
+.account .who .name{ font-size:13px; color:#e7edf6; line-height:1.1; }
+.account .who .email{ font-size:12px; color:#9fb0c8; }
+.account .chev{ margin-left:auto; color:#9fb0c8; }
+
+/* Popover chico, no barra completa */
+.account-menu{
+  position:absolute;
+  left:12px;
+  bottom:56px;
+  width:220px;
+  background:#0f1218; border:1px solid #1d2230; box-shadow:0 8px 24px rgba(0,0,0,.45);
+  border-radius:10px; padding:6px; z-index:1000;
+}
+.account-menu .mi{
+  width:100%; display:block; padding:8px 10px; background:transparent;
+  border:none; border-radius:8px; color:#e7edf6; text-align:left; cursor:pointer;
+}
+.account-menu .mi:hover{ background:#1a2232; }
+
+/* botón flotante para reabrir sidebar */
+.toggle-sidebar{
+  position:fixed; left:10px; top:10px; z-index:1001;
+  border:1px solid #2a3346; background:#0b0e13; color:#e7edf6;
+  padding:8px 10px; border-radius:10px; cursor:pointer;
+}
+.toggle-sidebar:hover{ background:#121826; }

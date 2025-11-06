@@ -1,14 +1,18 @@
-<div class="shell">
+<div class="shell" [class.collapsed]="sidebarCollapsed">
   <aside class="sidebar">
     <div class="side-header">
-      <!-- <h3>Conversaciones</h3> -->
       <div class="side-actions">
-        <button type="button" class="btn-new" (click)="newThread()">Nuevo</button>
-        <button type="button" class="btn-logout" (click)="logout()">Salir</button>
+        <button type="button" class="btn-new" (click)="newThread()">New chat</button>
+        <!-- Quitado: botón Salir del header -->
+        <button type="button"
+                class="btn-hide"
+                title="Ocultar barra lateral"
+                aria-label="Ocultar barra lateral"
+                (click)="toggleSidebar()">❮</button>
       </div>
     </div>
 
-    <div class="threads-scroll">
+    <div class="threads-scroll" (scroll)="closeMenus()">
       <ul class="threads">
         <li *ngFor="let t of threads; trackBy: trackByIdx"
             [class.active]="(t._id||t.id) === (current?._id || current?.id)"
@@ -25,10 +29,33 @@
         </li>
       </ul>
     </div>
+
+    <!-- Perfil abajo -->
+    <div class="account" (click)="toggleAccountMenu($event)">
+      <div class="avatar">{{ userInitial }}</div>
+      <div class="who">
+        <div class="name">{{ userName }}</div>
+        <div class="email">{{ userEmail }}</div>
+      </div>
+      <!-- <div class="chev">▾</div> -->
+    </div>
+
+    <!-- Popover de cuenta -->
+    <div class="account-menu" *ngIf="accountMenuOpen" (click)="$event.stopPropagation()">
+      <button type="button" class="mi" (click)="logout()">Cerrar sesión</button>
+    </div>
   </aside>
 
   <section class="main">
-    <div class="messages" id="messages">
+    <!-- botón flotante para reabrir sidebar cuando está oculto -->
+    <button type="button"
+            class="toggle-sidebar"
+            *ngIf="sidebarCollapsed"
+            (click)="toggleSidebar()"
+            title="Abrir barra lateral"
+            aria-label="Abrir barra lateral">❯</button>
+
+    <div class="messages" id="messages" (scroll)="closeMenus()" (click)="closeMenus()">
       <div *ngFor="let m of messages; trackBy: trackByIdx"
            class="msg"
            [class.user]="m.role==='user'"
@@ -54,7 +81,7 @@
      [ngStyle]="{ top: menuTop + 'px', left: menuLeft + 'px' }"
      (click)="$event.stopPropagation()">
   <button type="button" class="mi" (click)="renameThread(menuThreadRef); closeMenus()">
-    Cambiar el nombre
+    Editar
   </button>
   <button type="button" class="mi danger" (click)="removeThread(menuThreadRef); closeMenus()">
     Eliminar
