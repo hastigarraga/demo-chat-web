@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "start": "ng serve -o",
-    "build": "ng build --configuration production",
+    "start": "ng serve demo-chat-web -o",
+    "build": "ng build demo-chat-web --configuration production",
     "lint": "ng lint",
     "test": "ng test"
   },

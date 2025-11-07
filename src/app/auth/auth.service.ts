@@ -1,8 +1,8 @@
 import { Injectable } from "@angular/core";
 import { HttpClient } from "@angular/common/http";
 import { environment } from "../../environments/environment";
-import { tap } from "rxjs/operators";
-import { Observable } from "rxjs";
+import { tap, switchMap } from "rxjs/operators";
+import { Observable, of } from "rxjs";
 
 function readCookie(name: string): string | null {
   const m = document.cookie.match(
@@ -17,18 +17,28 @@ export class AuthService {
 
   constructor(private http: HttpClient) {}
 
+  private stashAuth(res: any) {
+    const access = res?.access || readCookie("access");
+    const csrf   = res?.csrf   || readCookie("csrf");
+    if (access) localStorage.setItem("token", access);
+    if (csrf)   localStorage.setItem("csrf", csrf);
+  }
+
+  /** Si no hay CSRF en cookie/localStorage, lo pide a /auth/csrf y lo guarda. */
+  private ensureCsrf(): Observable<any> {
+    const has = readCookie("csrf") || localStorage.getItem("csrf");
+    if (has) return of({ ok: true, csrf: has });
+    return this.http
+      .get<{ ok: boolean; csrf?: string }>(`${this.base}/auth/csrf`, { withCredentials: true })
+      .pipe(tap(j => { if (j?.csrf) localStorage.setItem("csrf", j.csrf); }));
+  }
+
   login(email: string, password: string): Observable<any> {
     return this.http
       .post(`${this.base}/auth/login`, { email, password }, { withCredentials: true })
       .pipe(
-        tap((res: any) => {
-          // backend devuelve { ok, access, csrf, user }
-          const access = res?.access || readCookie("access");
-          const csrf   = res?.csrf   || readCookie("csrf");
-          if (access) localStorage.setItem("token", access);
-          if (csrf)   localStorage.setItem("csrf", csrf);
-          console.log("[AuthService] login response", { hasAccess: !!access, hasCsrf: !!csrf });
-        })
+        tap(res => this.stashAuth(res)),
+        switchMap(() => this.ensureCsrf())
       );
   }
 
@@ -36,13 +46,8 @@ export class AuthService {
     return this.http
       .post(`${this.base}/auth/signup`, { name, email, password }, { withCredentials: true })
       .pipe(
-        tap((res: any) => {
-          const access = res?.access || readCookie("access");
-          const csrf   = res?.csrf   || readCookie("csrf");
-          if (access) localStorage.setItem("token", access);
-          if (csrf)   localStorage.setItem("csrf", csrf);
-          console.log("[AuthService] signup response", { hasAccess: !!access, hasCsrf: !!csrf });
-        })
+        tap(res => this.stashAuth(res)),
+        switchMap(() => this.ensureCsrf())
       );
   }
 

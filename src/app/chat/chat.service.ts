@@ -4,7 +4,9 @@ import { environment } from "../../environments/environment";
 import { map } from "rxjs/operators";
 
 function readCookie(name: string): string | null {
-  const m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/[-[\]{}()*+?.,\\^$|#\\s]/g, '\\$&') + '=([^;]*)'));
+  const m = document.cookie.match(
+    new RegExp('(?:^|; )' + name.replace(/[-[\]{}()*+?.,\\^$|#\\s]/g, '\\$&') + '=([^;]*)')
+  );
   return m ? decodeURIComponent(m[1]) : null;
 }
 
