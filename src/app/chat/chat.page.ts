@@ -3,8 +3,9 @@ import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { ChatService } from "./chat.service";
 import { Router } from '@angular/router';
+import { AuthService } from "../auth/auth.service";
 
-// ⬇️ Pipes locales
+// Pipes locales
 import { LocalTzDatePipe } from "../shared/pipes/local-tz-date.pipe";
 import { ThreadTitlePipe } from "../shared/pipes/thread-title.pipe";
 
@@ -31,17 +32,45 @@ export class ChatPage implements OnInit {
   // UI sidebar y cuenta
   sidebarCollapsed = localStorage.getItem('ui.sidebarCollapsed') === '1';
   accountMenuOpen = false;
-  userName = 'Hernán';
-  userEmail = 'sesión';
+  userName = '';
+  userEmail = '';
 
-  constructor(private api: ChatService, private router: Router) {}
+  // Autocolapso por breakpoint
+  private readonly autoCollapseBp = 700; // px
+  private userToggled = false;
 
-  ngOnInit(){ this.bootstrap(); }
+  constructor(private api: ChatService, private auth: AuthService,  private router: Router) {}
+
+  ngOnInit(){
+    this.applyAutoCollapse();
+    this.bootstrap();
+    this.loadUser(); 
+  }
+
+  private loadUser(){                                               // <- agrega
+    this.auth.me().subscribe({
+      next: (res) => {
+        const u = res?.user || {};
+        this.userName  = (u.name  || '').trim();
+        this.userEmail = (u.email || '').trim();
+      },
+      error: () => { /* ignora, deja vacío */ }
+    });
+  }
 
   // cerrar menú con click afuera / ESC / resize; también cierra menú de cuenta
   @HostListener('document:click') onDocClick() { this.closeMenus(); this.accountMenuOpen = false; }
   @HostListener('document:keydown.escape') onEsc() { this.closeMenus(); this.accountMenuOpen = false; }
-  @HostListener('window:resize') onResize() { if (this.menuOpenId) this.closeMenus(); }
+  @HostListener('window:resize') onResize() {
+    if (this.menuOpenId) this.closeMenus();
+    this.applyAutoCollapse();
+  }
+
+  private applyAutoCollapse(){
+    const small = window.innerWidth <= this.autoCollapseBp;
+    if (!this.userToggled) this.sidebarCollapsed = small;
+    if (!small) this.userToggled = false;
+  }
 
   closeMenus(){ this.menuOpenId = null; this.menuThreadRef = null; }
 
@@ -58,8 +87,9 @@ export class ChatPage implements OnInit {
   }
 
   toggleSidebar(){
+    this.userToggled = true;
     this.sidebarCollapsed = !this.sidebarCollapsed;
-    localStorage.setItem('ui.sidebarCollapsed', this.sidebarCollapsed ? '1' : '0');
+    try { localStorage.setItem('ui.sidebarCollapsed', this.sidebarCollapsed ? '1' : '0'); } catch {}
   }
 
   toggleAccountMenu(ev: MouseEvent){

@@ -1,6 +1,6 @@
 <div class="auth-wrap">
   <div class="auth-card">
-    <h1>Iniciar sesión</h1>
+    <h1>Login</h1>
 
     <form (ngSubmit)="submit()" class="form">
       <label class="label">Email</label>
@@ -10,12 +10,12 @@
       <input class="input" type="password" name="password" [(ngModel)]="password" required autocomplete="current-password" />
 
       <button class="btn" [disabled]="loading" type="submit">
-        {{ loading ? 'Entrando…' : 'Entrar' }}
+        {{ loading ? 'Entering…' : 'Login' }}
       </button>
     </form>
 
-    <p class="helper">¿No tenés cuenta?
-      <a class="link" [routerLink]="['/auth/signup']">Crear cuenta</a>
+    <p class="helper">Don't you have an account?
+      <a class="link" [routerLink]="['/auth/signup']">Create account</a>
     </p>
   </div>
 </div>

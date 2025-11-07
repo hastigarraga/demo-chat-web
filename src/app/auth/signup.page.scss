@@ -1,4 +1,79 @@
-.login{max-width:420px;margin:5rem auto}
-label{display:block;margin-top:.75rem;color:var(--muted)}
-input{width:100%;background:#0c0e13;color:var(--text);border:1px solid var(--border);border-radius:10px;padding:.6rem .8rem}
-.error{color:var(--danger);margin-top:.5rem}
+/* layout idéntico al login */
+:host { display:block; min-height:100svh; }
+.container{
+  min-height:100svh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:32px 16px;
+}
+
+/* protege contra overflow por padding/border en hijos */
+.card{
+  width:100%;
+  max-width:520px;
+  background:#0f1218;
+  border:1px solid #1d2230;
+  border-radius:14px;
+  padding:28px;
+  box-shadow:0 18px 60px rgba(0,0,0,.35);
+}
+.card *{ box-sizing:border-box; }        /* <- clave */
+
+h1{
+  margin:0 0 16px;
+  font-size:32px;
+  font-weight:800;
+  letter-spacing:-0.02em;
+}
+
+/* form como columna con gap uniforme */
+form{
+  display:flex;
+  flex-direction:column;
+  gap:12px;                               /* reemplaza márgenes sueltos */
+}
+
+label{
+  color:var(--muted, #9fb0c8);
+  font-weight:500;
+}
+
+/* inputs sólidos y sin overflow */
+input{
+  display:block;
+  width:100%;
+  max-width:100%;
+  background:#0b0e13;
+  color:var(--text, #e7edf6);
+  border:1px solid #1d2230;
+  border-radius:12px;
+  padding:.85rem 1rem;
+  outline:none;
+}
+input:focus{
+  border-color:#355fff;
+  box-shadow:0 0 0 3px rgba(53,95,255,.2);
+}
+
+.btn{
+  align-self: center;       /* clave */
+  min-width: 220px;         /* ajusta a gusto: 220–280px */
+  margin-top:16px;
+  padding:.75rem 1.1rem;
+  border:0; border-radius:12px;
+  background:#16a34a; color:#fff; font-weight:700;
+  cursor:pointer;
+}
+
+.btn[disabled]{ opacity:.6; cursor:default; }
+
+.error{ color:var(--danger, #ef4444); }
+.alt{ color:var(--muted, #9fb0c8); margin-top:4px; }
+.alt a{ color:#22c55e; text-decoration:none; }
+.alt a:hover{ text-decoration:underline; }
+
+@media (max-width:640px){
+  .card{ padding:22px; border-radius:14px; }
+  h1{ font-size:28px; margin-bottom:14px; }
+}

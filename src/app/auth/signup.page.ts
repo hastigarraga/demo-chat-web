@@ -1,7 +1,7 @@
 import { Component } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
-import { Router } from "@angular/router";
+import { Router, RouterModule } from "@angular/router";
 import { AuthService } from "./auth.service";
 
 @Component({
@@ -9,7 +9,7 @@ import { AuthService } from "./auth.service";
   selector: "app-signup",
   templateUrl: "./signup.page.html",
   styleUrls: ["./signup.page.scss"],
-  imports: [CommonModule, FormsModule]
+  imports: [CommonModule, FormsModule, RouterModule],
 })
 export class SignupPage {
   name = "";
@@ -23,8 +23,10 @@ export class SignupPage {
   submit() {
     if (this.loading) return;
 
+    const name = this.name.trim();
     const email = this.email.trim();
     const password = this.password.trim();
+
     if (!email || !password) {
       this.error = "Completá email y password";
       return;
@@ -33,13 +35,15 @@ export class SignupPage {
     this.loading = true;
     this.error = "";
 
-    this.auth.signup(email, password).subscribe({
-      next: () => this.router.navigateByUrl("/chat"),
+    this.auth.signup(name, email, password).subscribe({
+      next: async () => {
+        try { await this.auth.me().toPromise(); } catch {}
+        this.router.navigateByUrl("/chat");
+      },
       error: (e) => {
-        // el backend devuelve { ok:false, error: "..." }
         this.error = e?.error?.error || "Error de registro";
         this.loading = false;
-      }
+      },
     });
   }
 }

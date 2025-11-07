@@ -42,7 +42,7 @@
 
     <!-- Popover de cuenta -->
     <div class="account-menu" *ngIf="accountMenuOpen" (click)="$event.stopPropagation()">
-      <button type="button" class="mi" (click)="logout()">Cerrar sesión</button>
+      <button type="button" class="mi" (click)="logout()">Log out</button>
     </div>
   </aside>
 
@@ -70,7 +70,7 @@
              [(ngModel)]="input"
              (keydown.enter)="send(); $event.preventDefault()"
              placeholder="Escribe tu mensaje…" />
-      <button type="button" (click)="send()" [disabled]="sending">Enviar</button>
+      <button type="button" (click)="send()" [disabled]="sending">Send</button>
     </div>
   </section>
 </div>
@@ -81,9 +81,9 @@
      [ngStyle]="{ top: menuTop + 'px', left: menuLeft + 'px' }"
      (click)="$event.stopPropagation()">
   <button type="button" class="mi" (click)="renameThread(menuThreadRef); closeMenus()">
-    Editar
+    Edit
   </button>
   <button type="button" class="mi danger" (click)="removeThread(menuThreadRef); closeMenus()">
-    Eliminar
+    Delete
   </button>
 </div>

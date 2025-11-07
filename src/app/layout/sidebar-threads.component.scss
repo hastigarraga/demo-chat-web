@@ -1,7 +1,7 @@
-.sidebar { width: 320px; padding: 12px; display: grid; gap: 12px; }
-.sidebar__header { display: flex; }
-.threads { display: grid; gap: 8px; }
-.thread { display: grid; grid-template-columns: 1fr auto; align-items: center; padding: 10px; border-radius: 12px; background: #1c1f26; border: 1px solid #2a2f3a; cursor: pointer; }
-.thread--active { border-color: #6c8cff; background: #1a2235; }
-.thread__title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.thread__buttons { display: flex; gap: 6px; }
+// .sidebar { width: 320px; padding: 12px; display: grid; gap: 12px; }
+// .sidebar__header { display: flex; }
+// .threads { display: grid; gap: 8px; }
+// .thread { display: grid; grid-template-columns: 1fr auto; align-items: center; padding: 10px; border-radius: 12px; background: #1c1f26; border: 1px solid #2a2f3a; cursor: pointer; }
+// .thread--active { border-color: #6c8cff; background: #1a2235; }
+// .thread__title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+// .thread__buttons { display: flex; gap: 6px; }
