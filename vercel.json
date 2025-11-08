@@ -1,9 +1,4 @@
 {
-  "buildCommand": "npm ci && npm run build -- --configuration production",
-  "outputDirectory": "dist/demo-chat-web",
-  "framework": "none",
-  "cleanUrls": true,
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  "framework": "angular",
+  "rewrites": [{ "source": "/(.*)", "destination": "/" }]
 }
