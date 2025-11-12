@@ -3,6 +3,7 @@
     <div class="side-header">
       <div class="side-actions">
         <button type="button" class="btn-new" (click)="newThread()">New chat</button>
+        <!-- Quitado: botón Salir del header -->
         <button type="button"
                 class="btn-hide"
                 title="Ocultar barra lateral"
@@ -19,6 +20,7 @@
           <div class="t-title">{{ titleOf(t) }}</div>
           <div class="t-meta">{{ (t.updatedAt || t.createdAt) | localTz:'dd/MM/yyyy HH:mm' }}</div>
 
+          <!-- Botón tres puntitos (hover) -->
           <button type="button"
                   class="btn-ellipsis"
                   (click)="openMenu($event, t)">
@@ -28,25 +30,28 @@
       </ul>
     </div>
 
+    <!-- Perfil abajo -->
     <div class="account" (click)="toggleAccountMenu($event)">
       <div class="avatar">{{ userInitial }}</div>
       <div class="who">
         <div class="name">{{ userName }}</div>
         <div class="email">{{ userEmail }}</div>
       </div>
+      <!-- <div class="chev">▾</div> -->
     </div>
 
+    <!-- Popover de cuenta -->
     <div class="account-menu" *ngIf="accountMenuOpen" (click)="$event.stopPropagation()">
       <button type="button" class="mi" (click)="logout()">Log out</button>
     </div>
   </aside>
 
   <section class="main">
+    <!-- botón flotante para reabrir sidebar cuando está oculto -->
     <button type="button"
             class="toggle-sidebar"
             *ngIf="sidebarCollapsed"
-            (click)="toggleSidebar()
-            "
+            (click)="toggleSidebar()"
             title="Abrir barra lateral"
             aria-label="Abrir barra lateral">❯</button>
 
@@ -62,8 +67,7 @@
 
     <div class="composer">
       <input type="text"
-             [ngModel]="input"
-             (ngModelChange)="onInputChange($event)"
+             [(ngModel)]="input"
              (keydown.enter)="send(); $event.preventDefault()"
              placeholder="Escribe tu mensaje…" />
       <button type="button" (click)="send()" [disabled]="sending">Send</button>
@@ -71,6 +75,7 @@
   </section>
 </div>
 
+<!-- Menú contextual FIXED (fuera del sidebar) -->
 <div class="ctx-menu"
      *ngIf="menuOpenId"
      [ngStyle]="{ top: menuTop + 'px', left: menuLeft + 'px' }"

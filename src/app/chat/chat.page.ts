@@ -1,3 +1,4 @@
+
 import { Component, OnInit, ViewChild, ElementRef, HostListener } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
@@ -18,14 +19,10 @@ import { ThreadTitlePipe } from "../shared/pipes/thread-title.pipe";
 })
 export class ChatPage implements OnInit {
   threads:any[]=[]; current:any=null; messages:any[]=[];
-  // texto visible en el input
   input=""; sending=false;
   @ViewChild("bottom") bottom!: ElementRef<HTMLDivElement>;
 
   private _autoRenamed = new Set<string>();
-
-  // borradores por hilo
-  private drafts: Record<string, string> = {};
 
   // menú contextual (fixed)
   menuOpenId: string | null = null;
@@ -48,17 +45,17 @@ export class ChatPage implements OnInit {
   ngOnInit(){
     this.applyAutoCollapse();
     this.bootstrap();
-    this.loadUser();
+    this.loadUser(); 
   }
 
-  private loadUser(){
+  private loadUser(){                                               // <- agrega
     this.auth.me().subscribe({
       next: (res) => {
         const u = res?.user || {};
         this.userName  = (u.name  || '').trim();
         this.userEmail = (u.email || '').trim();
       },
-      error: () => { /* ignora */ }
+      error: () => { /* ignora, deja vacío */ }
     });
   }
 
@@ -83,8 +80,8 @@ export class ChatPage implements OnInit {
     const btn = ev.currentTarget as HTMLElement;
     const r = btn.getBoundingClientRect();
     // posición FIXED a la derecha del botón (8px)
-    this.menuTop  = r.top + window.scrollY - 4;
-    this.menuLeft = r.right + window.scrollX + 8;
+    this.menuTop  = r.top + window.scrollY - 4;     // leve ajuste vertical
+    this.menuLeft = r.right + window.scrollX + 8;   // fuera del sidebar
     const id = t._id || t.id;
     this.menuOpenId = this.menuOpenId === id ? null : id;
     this.menuThreadRef = t;
@@ -132,24 +129,17 @@ export class ChatPage implements OnInit {
       next: res => {
         this.current = res.row;
         this.messages = res.messages || [];
-        // restaurar borrador del hilo cargado
-        this.input = this.drafts[id] ?? "";
         setTimeout(()=>this.bottom?.nativeElement?.scrollIntoView({behavior:"smooth"}), 30);
       },
       error: err => console.error("[ChatPage] getThread error", err)
     });
   }
 
-  // al cambiar de hilo: guardar borrador del actual y restaurar el del nuevo
   select(t:any){
     if (!t) return;
     const id = t._id || t.id;
-    const currId = this.current?._id || this.current?.id;
-    if (id === currId) return;
-
-    if (currId) this.drafts[currId] = this.input;
+    if (id === (this.current?._id || this.current?.id)) return;
     this.current = t;
-    this.input = this.drafts[id] ?? "";
     this.loadMessages(id);
   }
 
@@ -188,9 +178,8 @@ export class ChatPage implements OnInit {
     this.api.deleteThread(id).subscribe({
       next: _ => {
         this.threads = this.threads.filter(x => (x._id||x.id) !== id);
-        delete this.drafts[id];
         if (this.current && (this.current._id === id || this.current.id === id)) {
-          this.current = null; this.messages = []; this.input = "";
+          this.current = null; this.messages = [];
           this.ensureActive();
         }
       },
@@ -198,28 +187,16 @@ export class ChatPage implements OnInit {
     });
   }
 
-  // reflejar cambios mientras se escribe
-  onInputChange(v: string){
-    this.input = v;
-    const id = this.current?._id || this.current?.id;
-    if (id) this.drafts[id] = v;
-  }
-
   send(){
     const text = this.input.trim();
     if (!text || this.sending) return;
     this.sending = true;
-
     const id = this.current?._id || this.current?.id || null;
 
     // UI optimista
     const prev = this.messages.slice();
     this.messages = [...prev, { role: "user", content: text }, { role: "assistant", content: "…" }];
     setTimeout(()=>this.bottom?.nativeElement?.scrollIntoView({behavior:"smooth"}), 10);
-
-    // limpiar input y borrador del hilo inmediatamente
-    if (id) this.drafts[id] = "";
-    this.input = "";
 
     this.api.sendMessage(id, text).subscribe({
       next: res => {
@@ -232,7 +209,7 @@ export class ChatPage implements OnInit {
           else this.threads = [newThread, ...this.threads];
         }
         this.messages = res.messages || this.messages;
-        this.sending = false;
+        this.input = ""; this.sending = false;
         setTimeout(()=>this.bottom?.nativeElement?.scrollIntoView({behavior:"smooth"}), 10);
 
         const firstAssistant = (this.messages || []).find(m => m?.role === "assistant" && (m.content||"").trim());
@@ -245,9 +222,6 @@ export class ChatPage implements OnInit {
         console.error("[ChatPage] send error", err);
         this.messages = prev;
         this.sending=false;
-        // si falla, restaurar borrador
-        if (id) this.drafts[id] = text;
-        this.input = text;
       }
     });
   }
