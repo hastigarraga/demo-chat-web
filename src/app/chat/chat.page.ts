@@ -19,18 +19,6 @@ import { ThreadTitlePipe } from "../shared/pipes/thread-title.pipe";
 export class ChatPage implements OnInit {
   threads:any[]=[]; current:any=null; messages:any[]=[];
   input=""; sending=false;
-
-  // ===== borradores por hilo =====
-  private drafts: Record<string, string> = {};
-  private keyFor(id: string | null) { return id ?? "__new__"; }
-  private saveDraft() {
-    const id = this.current?._id || this.current?.id || null;
-    this.drafts[this.keyFor(id)] = this.input;
-  }
-  private restoreDraftFor(id: string | null) {
-    this.input = this.drafts[this.keyFor(id)] ?? "";
-  }
-
   @ViewChild("bottom") bottom!: ElementRef<HTMLDivElement>;
 
   private _autoRenamed = new Set<string>();
@@ -56,17 +44,17 @@ export class ChatPage implements OnInit {
   ngOnInit(){
     this.applyAutoCollapse();
     this.bootstrap();
-    this.loadUser();
+    this.loadUser(); 
   }
 
-  private loadUser(){
+  private loadUser(){                                               // <- agrega
     this.auth.me().subscribe({
       next: (res) => {
         const u = res?.user || {};
         this.userName  = (u.name  || '').trim();
         this.userEmail = (u.email || '').trim();
       },
-      error: () => { /* ignora */ }
+      error: () => { /* ignora, deja vacío */ }
     });
   }
 
@@ -91,8 +79,8 @@ export class ChatPage implements OnInit {
     const btn = ev.currentTarget as HTMLElement;
     const r = btn.getBoundingClientRect();
     // posición FIXED a la derecha del botón (8px)
-    this.menuTop  = r.top + window.scrollY - 4;
-    this.menuLeft = r.right + window.scrollX + 8;
+    this.menuTop  = r.top + window.scrollY - 4;     // leve ajuste vertical
+    this.menuLeft = r.right + window.scrollX + 8;   // fuera del sidebar
     const id = t._id || t.id;
     this.menuOpenId = this.menuOpenId === id ? null : id;
     this.menuThreadRef = t;
@@ -129,8 +117,6 @@ export class ChatPage implements OnInit {
     this.api.lastActive().subscribe({
       next: res => {
         this.current = res.row;
-        const id = this.current?._id || this.current?.id || null;
-        this.restoreDraftFor(id);               // ← restaura borrador del activo inicial
         if (this.current) this.loadMessages(this.current._id || this.current.id);
       },
       error: err => console.error("[ChatPage] lastActive error", err)
@@ -148,22 +134,11 @@ export class ChatPage implements OnInit {
     });
   }
 
-  // guarda borrador mientras escribe
-  onInputChange(v: string) {
-    this.input = v;
-    const id = this.current?._id || this.current?.id || null;
-    this.drafts[this.keyFor(id)] = v;
-  }
-
   select(t:any){
     if (!t) return;
     const id = t._id || t.id;
     if (id === (this.current?._id || this.current?.id)) return;
-
-    this.saveDraft();             // ← guarda borrador del saliente
     this.current = t;
-    this.restoreDraftFor(id);     // ← restaura borrador del entrante
-
     this.loadMessages(id);
   }
 
@@ -173,12 +148,7 @@ export class ChatPage implements OnInit {
         const row = res.row;
         if (!row) return;
         this.threads = [row, ...this.threads];
-
-        this.saveDraft();
-        this.current = row;
-        this.restoreDraftFor(row._id || row.id || null);
-
-        this.loadMessages(row._id || row.id);
+        this.select(row);
       },
       error: err => console.error("[ChatPage] newThread error", err)
     });
@@ -227,11 +197,6 @@ export class ChatPage implements OnInit {
     this.messages = [...prev, { role: "user", content: text }, { role: "assistant", content: "…" }];
     setTimeout(()=>this.bottom?.nativeElement?.scrollIntoView({behavior:"smooth"}), 10);
 
-    // limpia input de inmediato y borra borrador del hilo activo
-    const backup = this.input;
-    this.input = "";
-    this.drafts[this.keyFor(id)] = "";
-
     this.api.sendMessage(id, text).subscribe({
       next: res => {
         const newThread = res.thread || this.current;
@@ -243,7 +208,7 @@ export class ChatPage implements OnInit {
           else this.threads = [newThread, ...this.threads];
         }
         this.messages = res.messages || this.messages;
-        this.sending = false;
+        this.input = ""; this.sending = false;
         setTimeout(()=>this.bottom?.nativeElement?.scrollIntoView({behavior:"smooth"}), 10);
 
         const firstAssistant = (this.messages || []).find(m => m?.role === "assistant" && (m.content||"").trim());
@@ -256,9 +221,6 @@ export class ChatPage implements OnInit {
         console.error("[ChatPage] send error", err);
         this.messages = prev;
         this.sending=false;
-        // si falla, restaurar input y borrador
-        this.input = backup;
-        this.drafts[this.keyFor(id)] = backup;
       }
     });
   }
