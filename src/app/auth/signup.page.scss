@@ -77,3 +77,65 @@ input:focus{
   .card{ padding:22px; border-radius:14px; }
   h1{ font-size:28px; margin-bottom:14px; }
 }
+ 
+
+/* Google OAuth button */
+.oauth-block {
+  margin-bottom: 18px;
+}
+
+.oauth-google {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #111827;
+  border: 1px solid #374151;
+  color: #f9fafb;
+  font-weight: 500;
+}
+
+.oauth-google .g-logo {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #f9fafb;
+  color: #111827;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.divider {
+  margin-top: 12px;
+  margin-bottom: 4px;
+  text-align: center;
+  font-size: 12px;
+  color: rgba(156, 163, 175, 0.9);
+}
+
+.divider span {
+  position: relative;
+  padding: 0 10px;
+}
+
+.divider span::before,
+.divider span::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 999px;
+  height: 1px;
+  background: #111827;
+}
+
+.divider span::before {
+  right: 100%;
+}
+
+.divider span::after {
+  left: 100%;
+}

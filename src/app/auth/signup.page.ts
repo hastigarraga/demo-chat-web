@@ -3,6 +3,7 @@ import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { Router, RouterModule } from "@angular/router";
 import { AuthService } from "./auth.service";
+import { environment } from "../../environments/environment";
 
 @Component({
   standalone: true,
@@ -45,5 +46,11 @@ export class SignupPage {
         this.loading = false;
       },
     });
+  }
+
+  connectGoogle() {
+    const base = environment.API_BASE.replace(/\/+$/, "");
+    const url = `${base}/workspace/auth/start?service=drive`;
+    window.location.href = url;
   }
 }

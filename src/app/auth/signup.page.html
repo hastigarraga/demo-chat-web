@@ -2,15 +2,47 @@
   <div class="card">
     <h1>Create account</h1>
 
+    <div class="oauth-block">
+      <button type="button" class="btn oauth-google" (click)="connectGoogle()">
+        <span class="g-logo">G</span>
+        <span>Continue with Google</span>
+      </button>
+
+      <div class="divider">
+        <span>or with email and password</span>
+      </div>
+    </div>
+
     <form (ngSubmit)="submit()" novalidate>
       <label for="name">Name</label>
-      <input id="name" type="text" [(ngModel)]="name" name="name" autocomplete="name" autofocus />
+      <input
+        id="name"
+        type="text"
+        [(ngModel)]="name"
+        name="name"
+        autocomplete="name"
+        autofocus
+      />
 
       <label for="email">Email</label>
-      <input id="email" type="email" [(ngModel)]="email" name="email" required autocomplete="email" />
+      <input
+        id="email"
+        type="email"
+        [(ngModel)]="email"
+        name="email"
+        required
+        autocomplete="email"
+      />
 
       <label for="password">Password</label>
-      <input id="password" type="password" [(ngModel)]="password" name="password" required autocomplete="new-password" />
+      <input
+        id="password"
+        type="password"
+        [(ngModel)]="password"
+        name="password"
+        required
+        autocomplete="new-password"
+      />
 
       <button class="btn" type="submit" [disabled]="loading">
         {{ loading ? "Creating…" : "Create account" }}
