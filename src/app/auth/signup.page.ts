@@ -36,8 +36,8 @@ export class SignupPage {
     this.error = "";
 
     this.auth.signup(name, email, password).subscribe({
-      next: async () => {
-        try { await this.auth.me().toPromise(); } catch {}
+      next: () => {
+        this.loading = false;
         this.router.navigateByUrl("/chat");
       },
       error: (e) => {
