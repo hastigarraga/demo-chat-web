@@ -42,7 +42,12 @@
 
     <!-- Popover de cuenta -->
     <div class="account-menu" *ngIf="accountMenuOpen" (click)="$event.stopPropagation()">
-      <button type="button" class="mi" (click)="logout()">Log out</button>
+      <button type="button" class="mi" (click)="connectWorkspace('drive')">
+        Connect Google
+      </button>
+      <button type="button" class="mi" (click)="logout()">
+        Log out
+      </button>
     </div>
   </aside>
 
@@ -51,7 +56,8 @@
     <button type="button"
             class="toggle-sidebar"
             *ngIf="sidebarCollapsed"
-            (click)="toggleSidebar()"
+            (click)="toggleSidebar()
+            "
             title="Abrir barra lateral"
             aria-label="Abrir barra lateral">❯</button>
 
@@ -69,7 +75,7 @@
       <input type="text"
              [(ngModel)]="input"
              (keydown.enter)="send(); $event.preventDefault()"
-             placeholder="Escribe tu mensaje…" />
+             placeholder="Write something…" />
       <button type="button" (click)="send()" [disabled]="sending">Send</button>
     </div>
   </section>
