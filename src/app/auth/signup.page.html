@@ -2,13 +2,6 @@
   <div class="card">
     <h1>Create account</h1>
 
-    <button type="button" class="btn oauth-google" (click)="connectGoogle()">
-      <span class="g-logo">G</span>
-      <span>Continue with Google</span>
-    </button>
-
-    <p class="divider">or with email and password</p>
-
     <form (ngSubmit)="submit()" novalidate>
       <label for="name">Name</label>
       <input id="name" type="text" [(ngModel)]="name" name="name" autocomplete="name" autofocus />

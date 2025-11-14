@@ -3,7 +3,6 @@ import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { Router, RouterModule } from "@angular/router";
 import { AuthService } from "./auth.service";
-import { environment } from "../../environments/environment";
 
 @Component({
   standalone: true,
@@ -21,28 +20,13 @@ export class SignupPage {
 
   constructor(private auth: AuthService, private router: Router) {}
 
-  connectGoogle() {
-    this.error = "";
-
-    const email = this.email.trim();
-    if (!email) {
-      this.error = "Please enter your Google email before continuing.";
-      return;
-    }
-
-    const base = String(environment.API_BASE || "").replace(/\/+$/, "");
-    const url =
-      `${base}/workspace/auth/start` +
-      `?service=drive` +
-      `&user_google_email=${encodeURIComponent(email)}`;
-
-    window.location.href = url;
-  }
-
   submit() {
     if (this.loading) return;
 
-    const { name, email, password } = this;
+    const name = this.name.trim();
+    const email = this.email.trim();
+    const password = this.password.trim();
+
     if (!email || !password) {
       this.error = "Completá email y password";
       return;
@@ -53,9 +37,7 @@ export class SignupPage {
 
     this.auth.signup(name, email, password).subscribe({
       next: async () => {
-        try {
-          await this.auth.me().toPromise();
-        } catch {}
+        try { await this.auth.me().toPromise(); } catch {}
         this.router.navigateByUrl("/chat");
       },
       error: (e) => {

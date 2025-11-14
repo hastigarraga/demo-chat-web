@@ -2,17 +2,6 @@
   <div class="auth-card">
     <h1>Login</h1>
 
-    <div class="oauth-block">
-      <button type="button" class="btn oauth-google" (click)="connectGoogle()">
-        <span class="g-logo">G</span>
-        <span>Continue with Google</span>
-      </button>
-
-      <div class="divider">
-        <span>or with email and password</span>
-      </div>
-    </div>
-
     <form (ngSubmit)="submit()" class="form">
       <label class="label">Email</label>
       <input
@@ -37,6 +26,8 @@
       <button class="btn" [disabled]="loading" type="submit">
         {{ loading ? "Entering…" : "Login" }}
       </button>
+
+      <p *ngIf="error" class="error">{{ error }}</p>
     </form>
 
     <p class="helper">
