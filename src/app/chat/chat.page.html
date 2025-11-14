@@ -1,143 +1,89 @@
 <div class="shell" [class.collapsed]="sidebarCollapsed">
-  <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="side-header">
       <div class="side-actions">
-        <button type="button" class="btn-new" (click)="newThread()">
-          New chat
-        </button>
-        <button
-          type="button"
-          class="btn-hide"
-          title="Hide sidebar"
-          aria-label="Hide sidebar"
-          (click)="toggleSidebar()"
-        >
-          ❮
-        </button>
+        <button type="button" class="btn-new" (click)="newThread()">New chat</button>
+        <!-- Quitado: botón Salir del header -->
+        <button type="button"
+                class="btn-hide"
+                title="Ocultar barra lateral"
+                aria-label="Ocultar barra lateral"
+                (click)="toggleSidebar()">❮</button>
       </div>
     </div>
 
     <div class="threads-scroll" (scroll)="closeMenus()">
       <ul class="threads">
-        <li
-          *ngFor="let t of threads"
-          (click)="select(t)"
-          [class.active]="(current?._id || current?.id) === (t._id || t.id)"
-        >
-          <button type="button" class="thread-row">
-            <span class="title">{{ t | threadTitle }}</span>
-            <span class="meta">
-              <span class="time">{{ t.updatedAt | localTzDate }}</span>
-            </span>
-            <button
-              type="button"
-              class="btn-ellipsis"
-              (click)="openMenu($event, t)"
-              title="Options"
-            >
-              ⋮
-            </button>
+        <li *ngFor="let t of threads; trackBy: trackByIdx"
+            [class.active]="(t._id||t.id) === (current?._id || current?.id)"
+            (click)="select(t)">
+          <div class="t-title">{{ titleOf(t) }}</div>
+          <div class="t-meta">{{ (t.updatedAt || t.createdAt) | localTz:'dd/MM/yyyy HH:mm' }}</div>
+
+          <!-- Botón tres puntitos (hover) -->
+          <button type="button"
+                  class="btn-ellipsis"
+                  (click)="openMenu($event, t)">
+            ⋯
           </button>
         </li>
       </ul>
-
-      <div class="empty" *ngIf="!threads?.length">
-        <p>No chats yet.</p>
-        <button type="button" class="btn-secondary" (click)="newThread()">
-          Start a chat
-        </button>
-      </div>
     </div>
 
     <!-- Perfil abajo -->
     <div class="account" (click)="toggleAccountMenu($event)">
       <div class="avatar">{{ userInitial }}</div>
       <div class="who">
-        <div class="name">{{ userName || 'User' }}</div>
+        <div class="name">{{ userName }}</div>
         <div class="email">{{ userEmail }}</div>
       </div>
+      <!-- <div class="chev">▾</div> -->
     </div>
 
-    <!-- Menú de cuenta (Connect + Logout) -->
-    <div
-      class="account-menu"
-      *ngIf="accountMenuOpen"
-      (click)="$event.stopPropagation()"
-    >
-      <button type="button" class="mi" (click)="connectWorkspace()">
-        Connect Google Workspace
-      </button>
-      <button type="button" class="mi" (click)="logout()">
-        Log out
-      </button>
+    <!-- Popover de cuenta -->
+    <div class="account-menu" *ngIf="accountMenuOpen" (click)="$event.stopPropagation()">
+      <button type="button" class="mi" (click)="logout()">Log out</button>
     </div>
   </aside>
 
-  <!-- MAIN -->
   <section class="main">
-    <!-- botón flotante para mostrar sidebar cuando está colapsada -->
-    <button
-      type="button"
-      class="toggle-sidebar"
-      *ngIf="sidebarCollapsed"
-      (click)="toggleSidebar()"
-      title="Show sidebar"
-      aria-label="Show sidebar"
-    >
-      ☰
-    </button>
+    <!-- botón flotante para reabrir sidebar cuando está oculto -->
+    <button type="button"
+            class="toggle-sidebar"
+            *ngIf="sidebarCollapsed"
+            (click)="toggleSidebar()"
+            title="Abrir barra lateral"
+            aria-label="Abrir barra lateral">❯</button>
 
-    <div class="messages" (scroll)="closeMenus()" (click)="closeMenus()">
-      <div
-        *ngFor="let m of messages; trackBy: trackByIdx"
-        class="message"
-        [class.user]="m.role === 'user'"
-        [class.assistant]="m.role === 'assistant'"
-      >
-        <div class="bubble">
-          <pre>{{ m.content }}</pre>
-        </div>
+    <div class="messages" id="messages" (scroll)="closeMenus()" (click)="closeMenus()">
+      <div *ngFor="let m of messages; trackBy: trackByIdx"
+           class="msg"
+           [class.user]="m.role==='user'"
+           [class.assistant]="m.role==='assistant'">
+        <div class="bubble">{{ m.content }}</div>
       </div>
-
       <div #bottom></div>
     </div>
 
-    <form class="composer" (ngSubmit)="send()">
-      <textarea
-        [(ngModel)]="input"
-        name="input"
-        rows="2"
-        placeholder="Type your message..."
-        [disabled]="sending"
-      ></textarea>
-
-      <button type="submit" [disabled]="sending || !input.trim()">
-        {{ sending ? "Sending…" : "Send" }}
-      </button>
-    </form>
+    <div class="composer">
+      <input type="text"
+             [(ngModel)]="input"
+             (keydown.enter)="send(); $event.preventDefault()"
+             placeholder="Escribe tu mensaje…" />
+      <button type="button" (click)="send()" [disabled]="sending">Send</button>
+    </div>
   </section>
 </div>
 
-<!-- Menú contextual de hilos (fixed, fuera del sidebar) -->
-<div
-  class="ctx-menu"
-  *ngIf="menuOpenId"
-  [ngStyle]="{ top: menuTop + 'px', left: menuLeft + 'px' }"
-  (click)="$event.stopPropagation()"
->
-  <button
-    type="button"
-    class="mi"
-    (click)="renameThread(menuThreadRef); closeMenus()"
-  >
+<!-- Menú contextual FIXED (fuera del sidebar) -->
+<div class="ctx-menu"
+     *ngIf="menuOpenId"
+     [ngStyle]="{ top: menuTop + 'px', left: menuLeft + 'px' }"
+     (click)="$event.stopPropagation()">
+  <button type="button" class="mi" (click)="renameThread(menuThreadRef); closeMenus()">
     Edit
   </button>
-  <button
-    type="button"
-    class="mi danger"
-    (click)="removeThread(menuThreadRef); closeMenus()"
-  >
+  <button type="button" class="mi danger" (click)="removeThread(menuThreadRef); closeMenus()">
     Delete
   </button>
 </div>

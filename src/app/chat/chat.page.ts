@@ -1,17 +1,9 @@
-import {
-  Component,
-  OnInit,
-  ViewChild,
-  ElementRef,
-  HostListener,
-} from "@angular/core";
+import { Component, OnInit, ViewChild, ElementRef, HostListener } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
-import { Router } from "@angular/router";
-
 import { ChatService } from "./chat.service";
+import { Router } from '@angular/router';
 import { AuthService } from "../auth/auth.service";
-import { environment } from "../../environments/environment";
 
 // Pipes locales
 import { LocalTzDatePipe } from "../shared/pipes/local-tz-date.pipe";
@@ -22,16 +14,11 @@ import { ThreadTitlePipe } from "../shared/pipes/thread-title.pipe";
   selector: "app-chat",
   templateUrl: "./chat.page.html",
   styleUrls: ["./chat.page.scss"],
-  imports: [CommonModule, FormsModule, LocalTzDatePipe, ThreadTitlePipe],
+  imports: [CommonModule, FormsModule, LocalTzDatePipe, ThreadTitlePipe]
 })
 export class ChatPage implements OnInit {
-  threads: any[] = [];
-  current: any = null;
-  messages: any[] = [];
-
-  input = "";
-  sending = false;
-
+  threads:any[]=[]; current:any=null; messages:any[]=[];
+  input=""; sending=false;
   @ViewChild("bottom") bottom!: ElementRef<HTMLDivElement>;
 
   private _autoRenamed = new Set<string>();
@@ -42,336 +29,255 @@ export class ChatPage implements OnInit {
   menuLeft = 0;
   menuThreadRef: any = null;
 
-  // sidebar y cuenta
-  sidebarCollapsed = false;
+  // UI sidebar y cuenta
+  sidebarCollapsed = localStorage.getItem('ui.sidebarCollapsed') === '1';
   accountMenuOpen = false;
+  userName = '';
+  userEmail = '';
 
-  userName = "";
-  userEmail = "";
+  // Autocolapso por breakpoint
+  private readonly autoCollapseBp = 700; // px
+  private userToggled = false;
 
-  constructor(
-    private api: ChatService,
-    private auth: AuthService,
-    private router: Router
-  ) {}
+  constructor(private api: ChatService, private auth: AuthService,  private router: Router) {}
 
-  ngOnInit(): void {
-    this.loadUser();
-    this.loadThreads();
+  ngOnInit(){
+    this.applyAutoCollapse();
+    this.bootstrap();
+    this.loadUser(); 
   }
 
-  // ================== USER ==================
-
-  private loadUser() {
+  private loadUser(){                                               // <- agrega
     this.auth.me().subscribe({
-      next: (res: any) => {
+      next: (res) => {
         const u = res?.user || {};
-        this.userName = (u.name || "").trim();
-        this.userEmail = (u.email || "").trim();
+        this.userName  = (u.name  || '').trim();
+        this.userEmail = (u.email || '').trim();
       },
-      error: () => {
-        // si falla, seguimos sin nombre/email
-      },
+      error: () => { /* ignora, deja vacío */ }
     });
   }
 
-  get userInitial(): string {
-    const base = (this.userName || this.userEmail || "U").trim();
-    return base ? base.charAt(0).toUpperCase() : "U";
+  // cerrar menú con click afuera / ESC / resize; también cierra menú de cuenta
+  @HostListener('document:click') onDocClick() { this.closeMenus(); this.accountMenuOpen = false; }
+  @HostListener('document:keydown.escape') onEsc() { this.closeMenus(); this.accountMenuOpen = false; }
+  @HostListener('window:resize') onResize() {
+    if (this.menuOpenId) this.closeMenus();
+    this.applyAutoCollapse();
   }
 
-  // ================== THREADS ==================
-
-  private loadThreads() {
-    this.api.listThreads().subscribe({
-      next: (res: { ok: boolean; rows: any[] }) => {
-        this.threads = res?.rows || [];
-        if (this.threads.length && !this.current) {
-          this.select(this.threads[0]);
-        }
-      },
-      error: (err: any) =>
-        console.error("[ChatPage] listThreads error", err),
-    });
+  private applyAutoCollapse(){
+    const small = window.innerWidth <= this.autoCollapseBp;
+    if (!this.userToggled) this.sidebarCollapsed = small;
+    if (!small) this.userToggled = false;
   }
 
-  select(t: any) {
-    if (!t) return;
-    const id = t._id || t.id;
-    if (!id) return;
+  closeMenus(){ this.menuOpenId = null; this.menuThreadRef = null; }
 
-    this.current = t;
-    this.loadMessages(id);
-  }
-
-  newThread() {
-    this.api.createThread().subscribe({
-      next: (res: { ok: boolean; row: any }) => {
-        const row = res?.row;
-        if (!row) return;
-        this.threads = [row, ...this.threads];
-        this.select(row);
-      },
-      error: (err: any) =>
-        console.error("[ChatPage] createThread error", err),
-    });
-  }
-
-  // usamos tu getThread en vez de un getMessages inexistente
-  loadMessages(threadId: string) {
-    this.api.getThread(threadId).subscribe({
-      next: (res: { ok: boolean; row: any; messages: any[] }) => {
-        // por si el backend devuelve el thread actualizado
-        this.current = res?.row || this.current;
-        this.messages =
-          res?.messages || res?.row?.messages || [];
-        this.scrollBottom();
-      },
-      error: (err: any) =>
-        console.error("[ChatPage] getThread error", err),
-    });
-  }
-
-  // ================== MENSAJES ==================
-
-  send() {
-    const text = this.input.trim();
-    if (!text || this.sending || !this.current) return;
-
-    const id = this.current._id || this.current.id;
-    if (!id) return;
-
-    this.sending = true;
-
-    this.api.sendMessage(id, text).subscribe({
-      next: (res: { ok: boolean; thread: any; messages: any[] }) => {
-        this.current = res?.thread || this.current;
-        this.messages = res?.messages || this.messages;
-        this.input = "";
-        this.sending = false;
-        this.scrollBottom();
-        this.smartRenameIfNeeded();
-      },
-      error: (err: any) => {
-        console.error("[ChatPage] sendMessage error", err);
-        this.sending = false;
-      },
-    });
-  }
-
-  private scrollBottom() {
-    setTimeout(() => {
-      try {
-        this.bottom?.nativeElement.scrollIntoView({
-          behavior: "smooth",
-          block: "end",
-        });
-      } catch {
-        // ignore
-      }
-    }, 0);
-  }
-
-  // ================== AUTO-RENAME ==================
-  // Usa tu generateSmartTitle + renameThread (no se toca el servicio)
-
-  private smartRenameIfNeeded() {
-    const cur = this.current;
-    if (!cur) return;
-
-    const id = cur._id || cur.id;
-    if (!id || this._autoRenamed.has(id)) return;
-
-    const rawTitle = (cur.title || "").trim();
-    const isPlaceholder =
-      !rawTitle ||
-      /^nuevo chat$/i.test(rawTitle) ||
-      /^new chat$/i.test(rawTitle);
-
-    if (!isPlaceholder) return;
-
-    const userMessages = (this.messages || [])
-      .filter((m) => m.role === "user")
-      .map((m) => m.content || "")
-      .join(" ")
-      .slice(0, 200);
-
-    if (!userMessages) return;
-
-    this._autoRenamed.add(id);
-
-    // 1) pedimos título al utils
-    this.api.generateSmartTitle(userMessages).subscribe({
-      next: (title: string) => {
-        const finalTitle = (title || "").trim();
-        if (!finalTitle) {
-          this._autoRenamed.delete(id);
-          return;
-        }
-
-        // 2) renombramos el thread en el backend
-        this.api.renameThread(id, finalTitle).subscribe({
-          next: () => {
-            this.current = { ...this.current, title: finalTitle };
-            this.threads = this.threads.map((t) =>
-              (t._id || t.id) === id ? { ...t, title: finalTitle } : t
-            );
-          },
-          error: (err: any) => {
-            console.error(
-              "[ChatPage] renameThread (auto) error",
-              err
-            );
-            this._autoRenamed.delete(id);
-          },
-        });
-      },
-      error: (err: any) => {
-        console.error("[ChatPage] generateSmartTitle error", err);
-        this._autoRenamed.delete(id);
-      },
-    });
-  }
-
-  // ================== CONTEXT MENU THREADS ==================
-
-  openMenu(ev: MouseEvent, t: any) {
+  openMenu(ev: MouseEvent, t: any){
     ev.stopPropagation();
-    const id = t?._id || t?.id;
-    if (!id) return;
-
     const btn = ev.currentTarget as HTMLElement;
-    const rect = btn.getBoundingClientRect();
-
-    this.menuTop = rect.top + window.scrollY + rect.height;
-    this.menuLeft = rect.right + window.scrollX;
-
-    this.menuOpenId = id;
+    const r = btn.getBoundingClientRect();
+    // posición FIXED a la derecha del botón (8px)
+    this.menuTop  = r.top + window.scrollY - 4;     // leve ajuste vertical
+    this.menuLeft = r.right + window.scrollX + 8;   // fuera del sidebar
+    const id = t._id || t.id;
+    this.menuOpenId = this.menuOpenId === id ? null : id;
     this.menuThreadRef = t;
   }
 
-  closeMenus() {
-    this.menuOpenId = null;
-    this.menuThreadRef = null;
-  }
-
-  renameThread(t: any) {
-    if (!t) return;
-    const id = t._id || t.id;
-    if (!id) return;
-
-    const currentTitle = (t.title || "New chat").trim();
-    const next = window.prompt("Edit title", currentTitle);
-    if (!next) return;
-
-    const title = next.trim();
-    if (!title || title === currentTitle) return;
-
-    this.api.renameThread(id, title).subscribe({
-      next: () => {
-        this.threads = this.threads.map((th) =>
-          (th._id || th.id) === id ? { ...th, title } : th
-        );
-        if (
-          this.current &&
-          (this.current._id || this.current.id) === id
-        ) {
-          this.current = { ...this.current, title };
-        }
-      },
-      error: (err: any) =>
-        console.error("[ChatPage] renameThread error", err),
-    });
-  }
-
-  removeThread(t: any) {
-    if (!t) return;
-    const id = t._id || t.id;
-    if (!id) return;
-
-    if (!window.confirm("Delete this chat?")) return;
-
-    // usamos tu deleteThread, no un removeThread inexistente
-    this.api.deleteThread(id).subscribe({
-      next: () => {
-        this.threads = this.threads.filter(
-          (th) => (th._id || th.id) !== id
-        );
-        if (
-          this.current &&
-          (this.current._id || this.current.id) === id
-        ) {
-          this.current = null;
-          this.messages = [];
-        }
-      },
-      error: (err: any) =>
-        console.error("[ChatPage] deleteThread error", err),
-    });
-  }
-
-  // ================== SIDEBAR / ACCOUNT MENU ==================
-
-  toggleSidebar() {
+  toggleSidebar(){
+    this.userToggled = true;
     this.sidebarCollapsed = !this.sidebarCollapsed;
+    try { localStorage.setItem('ui.sidebarCollapsed', this.sidebarCollapsed ? '1' : '0'); } catch {}
   }
 
-  toggleAccountMenu(ev: MouseEvent) {
+  toggleAccountMenu(ev: MouseEvent){
     ev.stopPropagation();
     this.accountMenuOpen = !this.accountMenuOpen;
   }
 
-  connectWorkspace(service: string = "drive") {
-    const base = environment.API_BASE.replace(/\/+$/, "");
-    const email = (this.userEmail || "").trim();
+  get userInitial(): string {
+    const s = (this.userName || this.userEmail || 'U').trim();
+    return s ? s[0].toUpperCase() : 'U';
+  }
 
-    const params = new URLSearchParams({ service });
-    if (email) params.append("user_google_email", email);
+  bootstrap(){
+    this.api.listThreads().subscribe({
+      next: res => {
+        this.threads = res.rows || [];
+        this.ensureActive();
+      },
+      error: err => console.error("[ChatPage] listThreads error", err)
+    });
+  }
 
-    const url = `${base}/workspace/auth/start?${params.toString()}`;
+  ensureActive(){
+    if (this.current) { this.loadMessages(this.current._id || this.current.id); return; }
+    this.api.lastActive().subscribe({
+      next: res => {
+        this.current = res.row;
+        if (this.current) this.loadMessages(this.current._id || this.current.id);
+      },
+      error: err => console.error("[ChatPage] lastActive error", err)
+    });
+  }
 
-    window.open(
-      url,
-      "_blank",
-      "width=520,height=720,noopener,noreferrer"
-    );
+  loadMessages(id:string){
+    this.api.getThread(id).subscribe({
+      next: res => {
+        this.current = res.row;
+        this.messages = res.messages || [];
+        setTimeout(()=>this.bottom?.nativeElement?.scrollIntoView({behavior:"smooth"}), 30);
+      },
+      error: err => console.error("[ChatPage] getThread error", err)
+    });
+  }
+
+  select(t:any){
+    if (!t) return;
+    const id = t._id || t.id;
+    if (id === (this.current?._id || this.current?.id)) return;
+    this.current = t;
+    this.loadMessages(id);
+  }
+
+  newThread(){
+    this.api.createThread().subscribe({
+      next: res => {
+        const row = res.row;
+        if (!row) return;
+        this.threads = [row, ...this.threads];
+        this.select(row);
+      },
+      error: err => console.error("[ChatPage] newThread error", err)
+    });
+  }
+
+  renameThread(t:any){
+    const curr = t?.title || "Nuevo chat";
+    const title = prompt("Nuevo título", curr)?.trim();
+    if (!title) return;
+    const id = t._id || t.id;
+    this.api.renameThread(id, title).subscribe({
+      next: _ => {
+        const idx = this.threads.findIndex(x => (x._id || x.id) === id);
+        if (idx >= 0) this.threads = this.threads.map((x,i)=> i===idx? { ...x, title } : x);
+        if (this.current && (this.current._id === id || this.current.id === id)) {
+          this.current = { ...this.current, title };
+        }
+      },
+      error: err => console.error("[ChatPage] rename error", err)
+    });
+  }
+
+  removeThread(t:any){
+    const id = t._id || t.id;
+    if (!confirm("¿Eliminar este chat?")) return;
+    this.api.deleteThread(id).subscribe({
+      next: _ => {
+        this.threads = this.threads.filter(x => (x._id||x.id) !== id);
+        if (this.current && (this.current._id === id || this.current.id === id)) {
+          this.current = null; this.messages = [];
+          this.ensureActive();
+        }
+      },
+      error: err => console.error("[ChatPage] delete error", err)
+    });
+  }
+
+  send(){
+    const text = this.input.trim();
+    if (!text || this.sending) return;
+    this.sending = true;
+    const id = this.current?._id || this.current?.id || null;
+
+    // UI optimista
+    const prev = this.messages.slice();
+    this.messages = [...prev, { role: "user", content: text }, { role: "assistant", content: "…" }];
+    setTimeout(()=>this.bottom?.nativeElement?.scrollIntoView({behavior:"smooth"}), 10);
+
+    this.api.sendMessage(id, text).subscribe({
+      next: res => {
+        const newThread = res.thread || this.current;
+        if (newThread) {
+          this.current = newThread;
+          const tid = this.current._id || this.current.id;
+          const idx = this.threads.findIndex(x => (x._id||x.id) === tid);
+          if (idx >= 0) this.threads = this.threads.map((x,i)=> i===idx? { ...x, ...newThread } : x);
+          else this.threads = [newThread, ...this.threads];
+        }
+        this.messages = res.messages || this.messages;
+        this.input = ""; this.sending = false;
+        setTimeout(()=>this.bottom?.nativeElement?.scrollIntoView({behavior:"smooth"}), 10);
+
+        const firstAssistant = (this.messages || []).find(m => m?.role === "assistant" && (m.content||"").trim());
+        const seedAnswer = String(firstAssistant?.content || "").trim();
+        const seedUser   = String(text || "").trim();
+        const seed = (seedAnswer ? `Pregunta: ${seedUser}\nRespuesta: ${seedAnswer}` : seedUser).slice(0, 2000);
+        this.autoRenameIfNeededLLM(this.current, seed);
+      },
+      error: err => {
+        console.error("[ChatPage] send error", err);
+        this.messages = prev;
+        this.sending=false;
+      }
+    });
   }
 
   logout() {
-    try {
-      localStorage.removeItem("token");
-      localStorage.removeItem("csrf");
-    } catch {}
-    this.router.navigateByUrl("/auth");
+    try { localStorage.removeItem('token'); } catch {}
+    this.router.navigateByUrl('/auth');
   }
 
-  // ================== HOST LISTENERS ==================
-
-  @HostListener("document:click")
-  onDocClick() {
-    this.closeMenus();
-    this.accountMenuOpen = false;
+  titleOf(t: any): string {
+    const ready = (t?.title || "").trim();
+    const isPlaceholder = /^nuevo chat$/i.test(ready);
+    if (ready && !isPlaceholder) return ready;
+    return "Nuevo chat";
   }
 
-  @HostListener("document:keydown.escape", ["$event"])
-  onEsc(ev: KeyboardEvent) {
-    ev.stopPropagation();
-    this.closeMenus();
-    this.accountMenuOpen = false;
+  private autoRenameIfNeededLLM(thread: any, seed: string) {
+    const id = thread?._id || thread?.id;
+    if (!id) return;
+
+    if (this._autoRenamed.has(id)) return;
+    const raw = (thread?.title || "").trim();
+    const isPlaceholder = /^nuevo chat$/i.test(raw);
+    if (raw && !isPlaceholder) return;
+
+    this._autoRenamed.add(id);
+    this.api.generateSmartTitle(seed).subscribe({
+      next: (generated: string) => {
+        const title = String(generated ?? "").trim();
+        if (!title || /^nuevo chat$/i.test(title)) {
+          this._autoRenamed.delete(id);
+          return;
+        }
+        this.persistTitle(id, title);
+      },
+      error: (err) => {
+        console.error("[ChatPage] LLM title error", err);
+        this._autoRenamed.delete(id);
+      }
+    });
   }
 
-  @HostListener("window:resize")
-  onResize() {
-    this.closeMenus();
+  private persistTitle(id: string, title: string) {
+    this.api.renameThread(id, title).subscribe({
+      next: _ => {
+        if (this.current && (this.current._id === id || this.current.id === id)) {
+          this.current = { ...this.current, title };
+        }
+        const idx = this.threads.findIndex(x => (x._id || x.id) === id);
+        if (idx >= 0) this.threads = this.threads.map((x, i) => i === idx ? { ...x, title } : x);
+      },
+      error: err => {
+        console.error("[ChatPage] persist title error", err);
+        this._autoRenamed.delete(id);
+      }
+    });
   }
 
-  // ================== TRACK BY ==================
-
-  trackByIdx(index: number, m: any) {
-    return (
-      m?._id ||
-      m?.id ||
-      `${m.role || "msg"}:${(m.content || "").slice(0, 16)}:${index}`
-    );
-  }
+  trackByIdx(_:number, m:any){ return m?._id || m?.id || `${m.role}:${(m.content||"").slice(0,12)}`; }
 }
