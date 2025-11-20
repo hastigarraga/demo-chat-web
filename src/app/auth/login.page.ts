@@ -25,7 +25,10 @@ export class LoginPage {
     this.error = "";
 
     this.auth.login(this.email, this.password).subscribe({
-      next: () => this.router.navigateByUrl("/chat"),
+      next: () => {
+        this.loading = false;
+        this.router.navigateByUrl("/chat");
+      },
       error: (e) => {
         const code = e?.error?.error || e?.error?.message || e?.message;
 
