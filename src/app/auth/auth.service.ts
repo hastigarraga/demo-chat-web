@@ -1,12 +1,12 @@
 import { Injectable } from "@angular/core";
 import { HttpClient } from "@angular/common/http";
 import { environment } from "../../environments/environment";
-import { tap } from "rxjs/operators";
+import { tap, switchMap } from "rxjs/operators";
 import { Observable, of } from "rxjs";
 
 function readCookie(name: string): string | null {
   const m = document.cookie.match(
-    new RegExp('(?:^|; )' + name.replace(/[-[\]{}()*+?.,\\^$|#\\s]/g, "\\$&") + "=([^;]*)")
+    new RegExp('(?:^|; )' + name.replace(/[-[\]{}()*+?.,\\^$|#\\s]/g, '\\$&') + '=([^;]*)')
   );
   return m ? decodeURIComponent(m[1]) : null;
 }
@@ -24,32 +24,31 @@ export class AuthService {
     if (csrf)   localStorage.setItem("csrf", csrf);
   }
 
-  /** Helper por si en algún punto necesitás forzar un CSRF nuevo */
+  /** Si no hay CSRF en cookie/localStorage, lo pide a /auth/csrf y lo guarda. */
   private ensureCsrf(): Observable<any> {
     const has = readCookie("csrf") || localStorage.getItem("csrf");
     if (has) return of({ ok: true, csrf: has });
-
     return this.http
       .get<{ ok: boolean; csrf?: string }>(`${this.base}/auth/csrf`, { withCredentials: true })
-      .pipe(
-        tap((j) => {
-          if (j?.csrf) localStorage.setItem("csrf", j.csrf);
-        })
-      );
+      .pipe(tap(j => { if (j?.csrf) localStorage.setItem("csrf", j.csrf); }));
   }
 
-  /** Login: SOLO hace POST /auth/login y guarda access + csrf. */
   login(email: string, password: string): Observable<any> {
     return this.http
       .post(`${this.base}/auth/login`, { email, password }, { withCredentials: true })
-      .pipe(tap((res) => this.stashAuth(res)));
+      .pipe(
+        tap(res => this.stashAuth(res)),
+        switchMap(() => this.ensureCsrf())
+      );
   }
 
-  /** Signup: igual, una sola request. */
   signup(name: string, email: string, password: string): Observable<any> {
     return this.http
       .post(`${this.base}/auth/signup`, { name, email, password }, { withCredentials: true })
-      .pipe(tap((res) => this.stashAuth(res)));
+      .pipe(
+        tap(res => this.stashAuth(res)),
+        switchMap(() => this.ensureCsrf())
+      );
   }
 
   me(): Observable<any> {

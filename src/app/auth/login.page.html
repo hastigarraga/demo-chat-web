@@ -4,34 +4,17 @@
 
     <form (ngSubmit)="submit()" class="form">
       <label class="label">Email</label>
-      <input
-        class="input"
-        type="email"
-        name="email"
-        [(ngModel)]="email"
-        required
-        autocomplete="email"
-      />
+      <input class="input" type="email" name="email" [(ngModel)]="email" required autocomplete="email" />
 
       <label class="label">Password</label>
-      <input
-        class="input"
-        type="password"
-        name="password"
-        [(ngModel)]="password"
-        required
-        autocomplete="current-password"
-      />
+      <input class="input" type="password" name="password" [(ngModel)]="password" required autocomplete="current-password" />
 
       <button class="btn" [disabled]="loading" type="submit">
-        {{ loading ? "Entering…" : "Login" }}
+        {{ loading ? 'Entering…' : 'Login' }}
       </button>
-
-      <p *ngIf="error" class="error">{{ error }}</p>
     </form>
 
-    <p class="helper">
-      Don't you have an account?
+    <p class="helper">Don't you have an account?
       <a class="link" [routerLink]="['/auth/signup']">Create account</a>
     </p>
   </div>
