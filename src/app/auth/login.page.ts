@@ -9,19 +9,39 @@ import { AuthService } from "./auth.service";
   selector: "app-login",
   templateUrl: "./login.page.html",
   styleUrls: ["./login.page.scss"],
-  imports: [CommonModule, FormsModule, RouterLink]
+  imports: [CommonModule, FormsModule, RouterLink],
 })
 export class LoginPage {
-  email = ""; password = ""; loading = false; error = "";
+  email = "";
+  password = "";
+  loading = false;
+  error = "";
 
   constructor(private auth: AuthService, private router: Router) {}
 
   submit() {
     if (this.loading) return;
-    this.loading = true; this.error = "";
+    this.loading = true;
+    this.error = "";
+
     this.auth.login(this.email, this.password).subscribe({
-      next: () => this.router.navigateByUrl("/chat"),
-      error: (e) => { this.error = e?.error?.message || "Error de login"; this.loading = false; }
+      next: () => {
+        this.loading = false;
+        this.router.navigateByUrl("/chat");
+      },
+      error: (e) => {
+        const code = e?.error?.error || e?.error?.message || e?.message;
+
+        if (code === "BAD_CREDENTIALS") {
+          this.error = "Email o contraseña incorrectos";
+        } else if (code === "BAD_INPUT") {
+          this.error = "Completá email y contraseña";
+        } else {
+          this.error = "Error de login";
+        }
+
+        this.loading = false;
+      },
     });
   }
 }
