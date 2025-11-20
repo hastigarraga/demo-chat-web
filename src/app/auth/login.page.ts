@@ -9,7 +9,7 @@ import { AuthService } from "./auth.service";
   selector: "app-login",
   templateUrl: "./login.page.html",
   styleUrls: ["./login.page.scss"],
-  imports: [CommonModule, FormsModule, RouterLink]
+  imports: [CommonModule, FormsModule, RouterLink],
 })
 export class LoginPage {
   email = "";
@@ -27,9 +27,18 @@ export class LoginPage {
     this.auth.login(this.email, this.password).subscribe({
       next: () => this.router.navigateByUrl("/chat"),
       error: (e) => {
-        this.error = e?.error?.message || "Error de login";
+        const code = e?.error?.error || e?.error?.message || e?.message;
+
+        if (code === "BAD_CREDENTIALS") {
+          this.error = "Email o contraseña incorrectos";
+        } else if (code === "BAD_INPUT") {
+          this.error = "Completá email y contraseña";
+        } else {
+          this.error = "Error de login";
+        }
+
         this.loading = false;
-      }
+      },
     });
   }
 }
