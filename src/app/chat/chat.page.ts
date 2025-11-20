@@ -4,7 +4,6 @@ import { FormsModule } from "@angular/forms";
 import { ChatService } from "./chat.service";
 import { Router } from '@angular/router';
 import { AuthService } from "../auth/auth.service";
-import { environment } from "../../environments/environment";   // <-- AGREGADO
 
 // Pipes locales
 import { LocalTzDatePipe } from "../shared/pipes/local-tz-date.pipe";
@@ -48,7 +47,7 @@ export class ChatPage implements OnInit {
     this.loadUser(); 
   }
 
-  private loadUser(){
+  private loadUser(){                                               // <- agrega
     this.auth.me().subscribe({
       next: (res) => {
         const u = res?.user || {};
@@ -229,23 +228,6 @@ export class ChatPage implements OnInit {
   logout() {
     try { localStorage.removeItem('token'); } catch {}
     this.router.navigateByUrl('/auth');
-  }
-
-  // === NUEVO: botón Conectar Google, sin tocar el resto ===
-  connectWorkspace(service: string = "drive") {
-    const base = environment.API_BASE.replace(/\/+$/, "");
-    const email = (this.userEmail || "").trim();
-
-    const params = new URLSearchParams({ service });
-    if (email) params.append("user_google_email", email);
-
-    const url = `${base}/workspace/auth/start?${params.toString()}`;
-
-    window.open(
-      url,
-      "_blank",
-      "width=520,height=720,noopener,noreferrer"
-    );
   }
 
   titleOf(t: any): string {
