@@ -4,6 +4,7 @@ import { FormsModule } from "@angular/forms";
 import { ChatService } from "./chat.service";
 import { Router } from '@angular/router';
 import { AuthService } from "../auth/auth.service";
+import { environment } from "../../environments/environment";   // <= IMPORTANTE
 
 // Pipes locales
 import { LocalTzDatePipe } from "../shared/pipes/local-tz-date.pipe";
@@ -44,10 +45,10 @@ export class ChatPage implements OnInit {
   ngOnInit(){
     this.applyAutoCollapse();
     this.bootstrap();
-    this.loadUser(); 
+    this.loadUser();
   }
 
-  private loadUser(){                                               // <- agrega
+  private loadUser(){
     this.auth.me().subscribe({
       next: (res) => {
         const u = res?.user || {};
@@ -79,8 +80,8 @@ export class ChatPage implements OnInit {
     const btn = ev.currentTarget as HTMLElement;
     const r = btn.getBoundingClientRect();
     // posición FIXED a la derecha del botón (8px)
-    this.menuTop  = r.top + window.scrollY - 4;     // leve ajuste vertical
-    this.menuLeft = r.right + window.scrollX + 8;   // fuera del sidebar
+    this.menuTop  = r.top + window.scrollY - 4;
+    this.menuLeft = r.right + window.scrollX + 8;
     const id = t._id || t.id;
     this.menuOpenId = this.menuOpenId === id ? null : id;
     this.menuThreadRef = t;
@@ -228,6 +229,23 @@ export class ChatPage implements OnInit {
   logout() {
     try { localStorage.removeItem('token'); } catch {}
     this.router.navigateByUrl('/auth');
+  }
+
+  // botón "Connect Google"
+  connectWorkspace(service: string = "drive") {
+    const base  = environment.API_BASE.replace(/\/+$/, "");
+    const email = (this.userEmail || "").trim();
+
+    const params = new URLSearchParams({ service });
+    if (email) params.append("user_google_email", email);
+
+    const url = `${base}/workspace/auth/start?${params.toString()}`;
+
+    window.open(
+      url,
+      "_blank",
+      "width=520,height=720,noopener,noreferrer"
+    );
   }
 
   titleOf(t: any): string {

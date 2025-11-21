@@ -42,8 +42,10 @@
 
     <!-- Popover de cuenta -->
     <div class="account-menu" *ngIf="accountMenuOpen" (click)="$event.stopPropagation()">
+      <button type="button" class="mi" (click)="connectWorkspace('drive')">Connect Google</button>
       <button type="button" class="mi" (click)="logout()">Log out</button>
     </div>
+
   </aside>
 
   <section class="main">
