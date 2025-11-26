@@ -36,11 +36,6 @@ export class ChatPage implements OnInit {
   userName = '';
   userEmail = '';
 
-  // Google Workspace OAuth (cookie httpOnly en API)
-  gwsConnected = false;
-  gwsEmail = "";
-  gwsLoading = false;
-
   // Autocolapso por breakpoint
   private readonly autoCollapseBp = 700; // px
   private userToggled = false;
@@ -51,7 +46,6 @@ export class ChatPage implements OnInit {
     this.applyAutoCollapse();
     this.bootstrap();
     this.loadUser();
-    this.refreshWorkspaceStatus();
   }
 
   private loadUser(){
@@ -62,19 +56,6 @@ export class ChatPage implements OnInit {
         this.userEmail = (u.email || '').trim();
       },
       error: () => { /* ignora, deja vacío */ }
-    });
-  }
-
-  private refreshWorkspaceStatus(){
-    this.api.workspaceStatus().subscribe({
-      next: (res:any) => {
-        this.gwsConnected = !!res?.connected;
-        this.gwsEmail = String(res?.email || "").trim();
-      },
-      error: () => {
-        this.gwsConnected = false;
-        this.gwsEmail = "";
-      }
     });
   }
 
@@ -250,46 +231,21 @@ export class ChatPage implements OnInit {
     this.router.navigateByUrl('/auth');
   }
 
-  // botón "Connect Google" (sin pedir email: lo resuelve la API por cookie)
+  // botón "Connect Google"
   connectWorkspace(service: string = "drive") {
-    if (this.gwsLoading) return;
-    this.gwsLoading = true;
-    this.accountMenuOpen = false;
+    const base  = environment.API_BASE.replace(/\/+$/, "");
+    const email = (this.userEmail || "").trim();
 
-    this.api.workspaceAuthStart(service).subscribe({
-      next: (res:any) => {
-        const url = String(res?.auth_url || "").trim();
-        if (!url) {
-          this.gwsLoading = false;
-          alert("No se pudo iniciar OAuth (NO_AUTH_URL).");
-          return;
-        }
-        // misma pestaña: al volver por /oauth2callback, la API setea cookie y redirige a /chat
-        window.location.href = url;
-      },
-      error: (err:any) => {
-        console.error("[ChatPage] workspaceAuthStart error", err);
-        this.gwsLoading = false;
-        alert("No se pudo iniciar OAuth.");
-      }
-    });
-  }
+    const params = new URLSearchParams({ service });
+    if (email) params.append("user_google_email", email);
 
-  disconnectWorkspace(){
-    if (this.gwsLoading) return;
-    this.gwsLoading = true;
-    this.api.workspaceDisconnect().subscribe({
-      next: () => {
-        this.gwsConnected = false;
-        this.gwsEmail = "";
-        this.gwsLoading = false;
-        this.accountMenuOpen = false;
-      },
-      error: (err:any) => {
-        console.error("[ChatPage] workspaceDisconnect error", err);
-        this.gwsLoading = false;
-      }
-    });
+    const url = `${base}/workspace/auth/start?${params.toString()}`;
+
+    window.open(
+      url,
+      "_blank",
+      "width=520,height=720,noopener,noreferrer"
+    );
   }
 
   titleOf(t: any): string {

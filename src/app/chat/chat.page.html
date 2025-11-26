@@ -42,21 +42,7 @@
 
     <!-- Popover de cuenta -->
     <div class="account-menu" *ngIf="accountMenuOpen" (click)="$event.stopPropagation()">
-      <ng-container *ngIf="gwsConnected; else gwsNotConnected">
-        <button type="button" class="mi" disabled>
-          Conectado como {{ gwsEmail || "—" }}
-        </button>
-        <button type="button" class="mi" (click)="disconnectWorkspace()" [disabled]="gwsLoading">
-          Disconnect Google
-        </button>
-      </ng-container>
-
-      <ng-template #gwsNotConnected>
-        <button type="button" class="mi" (click)="connectWorkspace('drive')" [disabled]="gwsLoading">
-          Connect Google
-        </button>
-      </ng-template>
-
+      <button type="button" class="mi" (click)="connectWorkspace('drive')">Connect Google</button>
       <button type="button" class="mi" (click)="logout()">Log out</button>
     </div>
 
