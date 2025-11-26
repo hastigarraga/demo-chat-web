@@ -4,7 +4,7 @@ import { FormsModule } from "@angular/forms";
 import { ChatService } from "./chat.service";
 import { Router } from '@angular/router';
 import { AuthService } from "../auth/auth.service";
-import { environment } from "../../environments/environment";   // <= IMPORTANTE
+import { environment } from "../../environments/environment";
 
 // Pipes locales
 import { LocalTzDatePipe } from "../shared/pipes/local-tz-date.pipe";
@@ -20,7 +20,13 @@ import { ThreadTitlePipe } from "../shared/pipes/thread-title.pipe";
 export class ChatPage implements OnInit {
   threads:any[]=[]; current:any=null; messages:any[]=[];
   input=""; sending=false;
+
   @ViewChild("bottom") bottom!: ElementRef<HTMLDivElement>;
+
+  userName = "";
+  userEmail = "";
+
+  sidebarCollapsed = false;
 
   private _autoRenamed = new Set<string>();
 
@@ -30,22 +36,25 @@ export class ChatPage implements OnInit {
   menuLeft = 0;
   menuThreadRef: any = null;
 
-  // UI sidebar y cuenta
-  sidebarCollapsed = localStorage.getItem('ui.sidebarCollapsed') === '1';
+  // account menu
   accountMenuOpen = false;
-  userName = '';
-  userEmail = '';
 
-  // Autocolapso por breakpoint
-  private readonly autoCollapseBp = 700; // px
-  private userToggled = false;
+  // Google Workspace connection state
+  gwsConnected = false;
+  gwsEmail = '';
+  gwsLoading = false;
 
-  constructor(private api: ChatService, private auth: AuthService,  private router: Router) {}
+  constructor(
+    private api: ChatService,
+    private router: Router,
+    private auth: AuthService
+  ) {}
 
   ngOnInit(){
     this.applyAutoCollapse();
     this.bootstrap();
     this.loadUser();
+    this.loadWorkspaceStatus();
   }
 
   private loadUser(){
@@ -59,38 +68,53 @@ export class ChatPage implements OnInit {
     });
   }
 
-  // cerrar menú con click afuera / ESC / resize; también cierra menú de cuenta
-  @HostListener('document:click') onDocClick() { this.closeMenus(); this.accountMenuOpen = false; }
-  @HostListener('document:keydown.escape') onEsc() { this.closeMenus(); this.accountMenuOpen = false; }
-  @HostListener('window:resize') onResize() {
-    if (this.menuOpenId) this.closeMenus();
-    this.applyAutoCollapse();
+  toggleSidebar(){
+    this.sidebarCollapsed = !this.sidebarCollapsed;
+    try {
+      localStorage.setItem("sidebarCollapsed", this.sidebarCollapsed ? "1":"0");
+    } catch {}
   }
 
   private applyAutoCollapse(){
-    const small = window.innerWidth <= this.autoCollapseBp;
-    if (!this.userToggled) this.sidebarCollapsed = small;
-    if (!small) this.userToggled = false;
+    try {
+      const v = localStorage.getItem("sidebarCollapsed");
+      this.sidebarCollapsed = v === "1";
+    } catch {}
   }
 
-  closeMenus(){ this.menuOpenId = null; this.menuThreadRef = null; }
+  // click afuera / ESC
+  @HostListener("document:click", ["$event"])
+  onDocClick(ev: MouseEvent) {
+    if (this.menuOpenId) this.closeMenus();
+    if (this.accountMenuOpen) this.accountMenuOpen = false;
+  }
 
-  openMenu(ev: MouseEvent, t: any){
+  @HostListener("window:keydown.escape")
+  onEsc() { this.closeMenus(); this.accountMenuOpen = false; }
+
+  @HostListener("window:scroll")
+  onScroll() { if (this.menuOpenId) this.closeMenus(); }
+
+  @HostListener("window:resize")
+  onResize() { if (this.menuOpenId) this.closeMenus(); }
+
+  // ===== Context menu threads =====
+  openMenu(ev: MouseEvent, t: any) {
+    ev.preventDefault();
     ev.stopPropagation();
-    const btn = ev.currentTarget as HTMLElement;
-    const r = btn.getBoundingClientRect();
-    // posición FIXED a la derecha del botón (8px)
-    this.menuTop  = r.top + window.scrollY - 4;
-    this.menuLeft = r.right + window.scrollX + 8;
-    const id = t._id || t.id;
-    this.menuOpenId = this.menuOpenId === id ? null : id;
+
+    this.menuOpenId = t?._id || t?.id;
     this.menuThreadRef = t;
+    const rect = (ev.target as HTMLElement).getBoundingClientRect();
+
+    // fixed menu
+    this.menuTop = rect.bottom + 6;
+    this.menuLeft = Math.min(rect.left, window.innerWidth - 220);
   }
 
-  toggleSidebar(){
-    this.userToggled = true;
-    this.sidebarCollapsed = !this.sidebarCollapsed;
-    try { localStorage.setItem('ui.sidebarCollapsed', this.sidebarCollapsed ? '1' : '0'); } catch {}
+  closeMenus() {
+    this.menuOpenId = null;
+    this.menuThreadRef = null;
   }
 
   toggleAccountMenu(ev: MouseEvent){
@@ -107,123 +131,103 @@ export class ChatPage implements OnInit {
     this.api.listThreads().subscribe({
       next: res => {
         this.threads = res.rows || [];
-        this.ensureActive();
+        if (!this.current && this.threads.length) {
+          this.openThread(this.threads[0], false);
+        }
       },
-      error: err => console.error("[ChatPage] listThreads error", err)
+      error: () => {}
     });
-  }
-
-  ensureActive(){
-    if (this.current) { this.loadMessages(this.current._id || this.current.id); return; }
-    this.api.lastActive().subscribe({
-      next: res => {
-        this.current = res.row;
-        if (this.current) this.loadMessages(this.current._id || this.current.id);
-      },
-      error: err => console.error("[ChatPage] lastActive error", err)
-    });
-  }
-
-  loadMessages(id:string){
-    this.api.getThread(id).subscribe({
-      next: res => {
-        this.current = res.row;
-        this.messages = res.messages || [];
-        setTimeout(()=>this.bottom?.nativeElement?.scrollIntoView({behavior:"smooth"}), 30);
-      },
-      error: err => console.error("[ChatPage] getThread error", err)
-    });
-  }
-
-  select(t:any){
-    if (!t) return;
-    const id = t._id || t.id;
-    if (id === (this.current?._id || this.current?.id)) return;
-    this.current = t;
-    this.loadMessages(id);
   }
 
   newThread(){
     this.api.createThread().subscribe({
-      next: res => {
-        const row = res.row;
-        if (!row) return;
-        this.threads = [row, ...this.threads];
-        this.select(row);
-      },
-      error: err => console.error("[ChatPage] newThread error", err)
+      next: (res:any) => {
+        const t = res?.thread;
+        if (!t) return;
+        this.threads = [t, ...this.threads];
+        this.openThread(t, true);
+      }
     });
   }
 
-  renameThread(t:any){
-    const curr = t?.title || "Nuevo chat";
-    const title = prompt("Nuevo título", curr)?.trim();
-    if (!title) return;
-    const id = t._id || t.id;
-    this.api.renameThread(id, title).subscribe({
-      next: _ => {
-        const idx = this.threads.findIndex(x => (x._id || x.id) === id);
-        if (idx >= 0) this.threads = this.threads.map((x,i)=> i===idx? { ...x, title } : x);
-        if (this.current && (this.current._id === id || this.current.id === id)) {
-          this.current = { ...this.current, title };
-        }
-      },
-      error: err => console.error("[ChatPage] rename error", err)
-    });
+  openThread(t:any, clear:boolean=true){
+    this.current = t;
+    if (clear) this.messages = [];
+    this.scrollBottom();
   }
 
-  removeThread(t:any){
-    const id = t._id || t.id;
-    if (!confirm("¿Eliminar este chat?")) return;
+  deleteThread(t:any){
+    const id = t?._id || t?.id;
+    if (!id) return;
     this.api.deleteThread(id).subscribe({
-      next: _ => {
-        this.threads = this.threads.filter(x => (x._id||x.id) !== id);
-        if (this.current && (this.current._id === id || this.current.id === id)) {
-          this.current = null; this.messages = [];
-          this.ensureActive();
+      next: () => {
+        this.threads = this.threads.filter(x => (x?._id||x?.id) !== id);
+        if ((this.current?._id||this.current?.id) === id) {
+          this.current = null;
+          this.messages = [];
+          if (this.threads.length) this.openThread(this.threads[0], true);
         }
-      },
-      error: err => console.error("[ChatPage] delete error", err)
+        this.closeMenus();
+      }
+    });
+  }
+
+  renameThreadPrompt(t:any){
+    const id = t?._id || t?.id;
+    if (!id) return;
+    const currentTitle = (t?.title || "").trim() || "Nuevo chat";
+    const next = prompt("Nuevo título:", currentTitle);
+    const title = (next || "").trim();
+    if (!title) return;
+
+    this.api.renameThread(id, title).subscribe({
+      next: () => {
+        t.title = title;
+        this.closeMenus();
+      }
     });
   }
 
   send(){
     const text = this.input.trim();
     if (!text || this.sending) return;
+
     this.sending = true;
-    const id = this.current?._id || this.current?.id || null;
+    const prev = [...this.messages, { role:"user", content:text }];
 
-    // UI optimista
-    const prev = this.messages.slice();
-    this.messages = [...prev, { role: "user", content: text }, { role: "assistant", content: "…" }];
-    setTimeout(()=>this.bottom?.nativeElement?.scrollIntoView({behavior:"smooth"}), 10);
+    const threadId = this.current?._id || this.current?.id || null;
 
-    this.api.sendMessage(id, text).subscribe({
-      next: res => {
-        const newThread = res.thread || this.current;
-        if (newThread) {
-          this.current = newThread;
-          const tid = this.current._id || this.current.id;
-          const idx = this.threads.findIndex(x => (x._id||x.id) === tid);
-          if (idx >= 0) this.threads = this.threads.map((x,i)=> i===idx? { ...x, ...newThread } : x);
-          else this.threads = [newThread, ...this.threads];
+    this.api.sendMessage(threadId, text).subscribe({
+      next: (res:any) => {
+        const t = res?.thread;
+        const msgs = res?.messages || [];
+
+        if (t) {
+          const id = t?._id || t?.id;
+          const exists = this.threads.some(x => (x?._id||x?.id) === id);
+          if (!exists) this.threads = [t, ...this.threads];
+          this.current = t;
         }
-        this.messages = res.messages || this.messages;
-        this.input = ""; this.sending = false;
-        setTimeout(()=>this.bottom?.nativeElement?.scrollIntoView({behavior:"smooth"}), 10);
 
-        const firstAssistant = (this.messages || []).find(m => m?.role === "assistant" && (m.content||"").trim());
-        const seedAnswer = String(firstAssistant?.content || "").trim();
-        const seedUser   = String(text || "").trim();
-        const seed = (seedAnswer ? `Pregunta: ${seedUser}\nRespuesta: ${seedAnswer}` : seedUser).slice(0, 2000);
-        this.autoRenameIfNeededLLM(this.current, seed);
+        this.messages = msgs.length ? msgs : prev;
+        this.input = "";
+        this.sending = false;
+        this.scrollBottom();
+
+        // Auto-rename si es placeholder
+        this.autoRenameIfNeededLLM(this.current, text);
       },
-      error: err => {
-        console.error("[ChatPage] send error", err);
+      error: () => {
         this.messages = prev;
         this.sending=false;
       }
     });
+  }
+
+  scrollBottom(){
+    setTimeout(() => {
+      try { this.bottom?.nativeElement?.scrollIntoView({ behavior:"smooth", block:"end" }); } catch {}
+    }, 20);
   }
 
   logout() {
@@ -231,21 +235,40 @@ export class ChatPage implements OnInit {
     this.router.navigateByUrl('/auth');
   }
 
-  // botón "Connect Google"
+  // ===== Google Workspace OAuth =====
+  loadWorkspaceStatus() {
+    this.api.workspaceStatus().subscribe({
+      next: (r) => {
+        this.gwsConnected = !!r?.connected;
+        this.gwsEmail = String(r?.email || '').trim();
+      },
+      error: () => {
+        this.gwsConnected = false;
+        this.gwsEmail = '';
+      }
+    });
+  }
+
   connectWorkspace(service: string = "drive") {
-    const base  = environment.API_BASE.replace(/\/+$/, "");
-    const email = (this.userEmail || "").trim();
+    this.gwsLoading = true;
+    this.accountMenuOpen = false;
 
-    const params = new URLSearchParams({ service });
-    if (email) params.append("user_google_email", email);
+    this.api.workspaceAuthStart(service, window.location.origin).subscribe({
+      next: (r) => {
+        const url = String(r?.auth_url || '').trim();
+        if (!url) { this.gwsLoading = false; return; }
+        // Redirige a Google (después vuelve a /oauth2callback y ahí a /chat)
+        window.location.href = url;
+      },
+      error: () => { this.gwsLoading = false; }
+    });
+  }
 
-    const url = `${base}/workspace/auth/start?${params.toString()}`;
-
-    window.open(
-      url,
-      "_blank",
-      "width=520,height=720,noopener,noreferrer"
-    );
+  disconnectWorkspace() {
+    this.api.workspaceDisconnect().subscribe({
+      next: () => this.loadWorkspaceStatus(),
+      error: () => this.loadWorkspaceStatus(),
+    });
   }
 
   titleOf(t: any): string {
@@ -283,19 +306,11 @@ export class ChatPage implements OnInit {
 
   private persistTitle(id: string, title: string) {
     this.api.renameThread(id, title).subscribe({
-      next: _ => {
-        if (this.current && (this.current._id === id || this.current.id === id)) {
-          this.current = { ...this.current, title };
-        }
-        const idx = this.threads.findIndex(x => (x._id || x.id) === id);
-        if (idx >= 0) this.threads = this.threads.map((x, i) => i === idx ? { ...x, title } : x);
+      next: () => {
+        const t = this.threads.find(x => (x?._id||x?.id) === id);
+        if (t) t.title = title;
       },
-      error: err => {
-        console.error("[ChatPage] persist title error", err);
-        this._autoRenamed.delete(id);
-      }
+      error: () => {}
     });
   }
-
-  trackByIdx(_:number, m:any){ return m?._id || m?.id || `${m.role}:${(m.content||"").slice(0,12)}`; }
 }
