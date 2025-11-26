@@ -4,7 +4,7 @@ import { FormsModule } from "@angular/forms";
 import { ChatService } from "./chat.service";
 import { Router } from '@angular/router';
 import { AuthService } from "../auth/auth.service";
-import { environment } from "../../environments/environment";   // <= IMPORTANTE
+import { environment } from "../../environments/environment";
 
 // Pipes locales
 import { LocalTzDatePipe } from "../shared/pipes/local-tz-date.pipe";
@@ -24,42 +24,57 @@ export class ChatPage implements OnInit {
 
   private _autoRenamed = new Set<string>();
 
-  // menú contextual (fixed)
   menuOpenId: string | null = null;
   menuTop = 0;
   menuLeft = 0;
   menuThreadRef: any = null;
 
-  // UI sidebar y cuenta
   sidebarCollapsed = localStorage.getItem('ui.sidebarCollapsed') === '1';
   accountMenuOpen = false;
   userName = '';
   userEmail = '';
 
-  // Autocolapso por breakpoint
+  // ✅ Workspace connection state (no toca diseño)
+  gwsConnected = false;
+  gwsEmail: string | null = null;
+  gwsBusy = false;
+
   private readonly autoCollapseBp = 700; // px
   private userToggled = false;
 
-  constructor(private api: ChatService, private auth: AuthService,  private router: Router) {}
+  constructor(private api: ChatService, private auth: AuthService, private router: Router) {}
 
   ngOnInit(){
     this.applyAutoCollapse();
     this.bootstrap();
     this.loadUser();
+    this.refreshWorkspaceStatus();
   }
 
   private loadUser(){
     this.auth.me().subscribe({
       next: (res) => {
-        const u = res?.user || {};
-        this.userName  = (u.name  || '').trim();
-        this.userEmail = (u.email || '').trim();
+        const u = (res as any)?.user || {};
+        this.userName  = String(u.name  || '').trim();
+        this.userEmail = String(u.email || '').trim();
       },
-      error: () => { /* ignora, deja vacío */ }
+      error: () => {}
     });
   }
 
-  // cerrar menú con click afuera / ESC / resize; también cierra menú de cuenta
+  private refreshWorkspaceStatus(){
+    this.api.workspaceStatus().subscribe({
+      next: (res:any) => {
+        this.gwsConnected = !!res?.connected;
+        this.gwsEmail = res?.email || null;
+      },
+      error: () => {
+        this.gwsConnected = false;
+        this.gwsEmail = null;
+      }
+    });
+  }
+
   @HostListener('document:click') onDocClick() { this.closeMenus(); this.accountMenuOpen = false; }
   @HostListener('document:keydown.escape') onEsc() { this.closeMenus(); this.accountMenuOpen = false; }
   @HostListener('window:resize') onResize() {
@@ -79,7 +94,6 @@ export class ChatPage implements OnInit {
     ev.stopPropagation();
     const btn = ev.currentTarget as HTMLElement;
     const r = btn.getBoundingClientRect();
-    // posición FIXED a la derecha del botón (8px)
     this.menuTop  = r.top + window.scrollY - 4;
     this.menuLeft = r.right + window.scrollX + 8;
     const id = t._id || t.id;
@@ -96,6 +110,7 @@ export class ChatPage implements OnInit {
   toggleAccountMenu(ev: MouseEvent){
     ev.stopPropagation();
     this.accountMenuOpen = !this.accountMenuOpen;
+    if (this.accountMenuOpen) this.refreshWorkspaceStatus();
   }
 
   get userInitial(): string {
@@ -106,7 +121,7 @@ export class ChatPage implements OnInit {
   bootstrap(){
     this.api.listThreads().subscribe({
       next: res => {
-        this.threads = res.rows || [];
+        this.threads = (res as any).rows || [];
         this.ensureActive();
       },
       error: err => console.error("[ChatPage] listThreads error", err)
@@ -117,7 +132,7 @@ export class ChatPage implements OnInit {
     if (this.current) { this.loadMessages(this.current._id || this.current.id); return; }
     this.api.lastActive().subscribe({
       next: res => {
-        this.current = res.row;
+        this.current = (res as any).row;
         if (this.current) this.loadMessages(this.current._id || this.current.id);
       },
       error: err => console.error("[ChatPage] lastActive error", err)
@@ -127,8 +142,8 @@ export class ChatPage implements OnInit {
   loadMessages(id:string){
     this.api.getThread(id).subscribe({
       next: res => {
-        this.current = res.row;
-        this.messages = res.messages || [];
+        this.current = (res as any).row;
+        this.messages = (res as any).messages || [];
         setTimeout(()=>this.bottom?.nativeElement?.scrollIntoView({behavior:"smooth"}), 30);
       },
       error: err => console.error("[ChatPage] getThread error", err)
@@ -146,7 +161,7 @@ export class ChatPage implements OnInit {
   newThread(){
     this.api.createThread().subscribe({
       next: res => {
-        const row = res.row;
+        const row = (res as any).row;
         if (!row) return;
         this.threads = [row, ...this.threads];
         this.select(row);
@@ -193,14 +208,13 @@ export class ChatPage implements OnInit {
     this.sending = true;
     const id = this.current?._id || this.current?.id || null;
 
-    // UI optimista
     const prev = this.messages.slice();
     this.messages = [...prev, { role: "user", content: text }, { role: "assistant", content: "…" }];
     setTimeout(()=>this.bottom?.nativeElement?.scrollIntoView({behavior:"smooth"}), 10);
 
     this.api.sendMessage(id, text).subscribe({
       next: res => {
-        const newThread = res.thread || this.current;
+        const newThread = (res as any).thread || this.current;
         if (newThread) {
           this.current = newThread;
           const tid = this.current._id || this.current.id;
@@ -208,7 +222,7 @@ export class ChatPage implements OnInit {
           if (idx >= 0) this.threads = this.threads.map((x,i)=> i===idx? { ...x, ...newThread } : x);
           else this.threads = [newThread, ...this.threads];
         }
-        this.messages = res.messages || this.messages;
+        this.messages = (res as any).messages || this.messages;
         this.input = ""; this.sending = false;
         setTimeout(()=>this.bottom?.nativeElement?.scrollIntoView({behavior:"smooth"}), 10);
 
@@ -231,21 +245,28 @@ export class ChatPage implements OnInit {
     this.router.navigateByUrl('/auth');
   }
 
-  // botón "Connect Google"
+  // ✅ Connect Google: NO pide email, redirige a /workspace/auth/start (que redirige a Google)
   connectWorkspace(service: string = "drive") {
-    const base  = environment.API_BASE.replace(/\/+$/, "");
-    const email = (this.userEmail || "").trim();
+    if (this.gwsBusy) return;
+    this.gwsBusy = true;
+    this.accountMenuOpen = false;
 
-    const params = new URLSearchParams({ service });
-    if (email) params.append("user_google_email", email);
+    const base = environment.API_BASE.replace(/\/+$/, "");
+    window.location.href = `${base}/workspace/auth/start?service=${encodeURIComponent(service)}`;
+  }
 
-    const url = `${base}/workspace/auth/start?${params.toString()}`;
-
-    window.open(
-      url,
-      "_blank",
-      "width=520,height=720,noopener,noreferrer"
-    );
+  disconnectWorkspace() {
+    if (this.gwsBusy) return;
+    this.gwsBusy = true;
+    this.api.workspaceDisconnect().subscribe({
+      next: () => {
+        this.gwsConnected = false;
+        this.gwsEmail = null;
+        this.gwsBusy = false;
+        this.accountMenuOpen = false;
+      },
+      error: () => { this.gwsBusy = false; }
+    });
   }
 
   titleOf(t: any): string {
@@ -274,10 +295,7 @@ export class ChatPage implements OnInit {
         }
         this.persistTitle(id, title);
       },
-      error: (err) => {
-        console.error("[ChatPage] LLM title error", err);
-        this._autoRenamed.delete(id);
-      }
+      error: () => { this._autoRenamed.delete(id); }
     });
   }
 
@@ -290,10 +308,7 @@ export class ChatPage implements OnInit {
         const idx = this.threads.findIndex(x => (x._id || x.id) === id);
         if (idx >= 0) this.threads = this.threads.map((x, i) => i === idx ? { ...x, title } : x);
       },
-      error: err => {
-        console.error("[ChatPage] persist title error", err);
-        this._autoRenamed.delete(id);
-      }
+      error: _ => { this._autoRenamed.delete(id); }
     });
   }
 

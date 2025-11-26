@@ -3,7 +3,6 @@
     <div class="side-header">
       <div class="side-actions">
         <button type="button" class="btn-new" (click)="newThread()">New chat</button>
-        <!-- Quitado: botón Salir del header -->
         <button type="button"
                 class="btn-hide"
                 title="Ocultar barra lateral"
@@ -20,7 +19,6 @@
           <div class="t-title">{{ titleOf(t) }}</div>
           <div class="t-meta">{{ (t.updatedAt || t.createdAt) | localTz:'dd/MM/yyyy HH:mm' }}</div>
 
-          <!-- Botón tres puntitos (hover) -->
           <button type="button"
                   class="btn-ellipsis"
                   (click)="openMenu($event, t)">
@@ -30,26 +28,36 @@
       </ul>
     </div>
 
-    <!-- Perfil abajo -->
     <div class="account" (click)="toggleAccountMenu($event)">
       <div class="avatar">{{ userInitial }}</div>
       <div class="who">
         <div class="name">{{ userName }}</div>
         <div class="email">{{ userEmail }}</div>
       </div>
-      <!-- <div class="chev">▾</div> -->
     </div>
 
-    <!-- Popover de cuenta -->
     <div class="account-menu" *ngIf="accountMenuOpen" (click)="$event.stopPropagation()">
-      <button type="button" class="mi" (click)="connectWorkspace('drive')">Connect Google</button>
+      <ng-container *ngIf="gwsConnected; else notConnected">
+        <button type="button" class="mi" disabled>
+          Conectado como {{ gwsEmail || "—" }}
+        </button>
+        <button type="button" class="mi" (click)="disconnectWorkspace()" [disabled]="gwsBusy">
+          Disconnect Google
+        </button>
+      </ng-container>
+
+      <ng-template #notConnected>
+        <button type="button" class="mi" (click)="connectWorkspace('drive')" [disabled]="gwsBusy">
+          Connect Google
+        </button>
+      </ng-template>
+
       <button type="button" class="mi" (click)="logout()">Log out</button>
     </div>
 
   </aside>
 
   <section class="main">
-    <!-- botón flotante para reabrir sidebar cuando está oculto -->
     <button type="button"
             class="toggle-sidebar"
             *ngIf="sidebarCollapsed"
@@ -77,7 +85,6 @@
   </section>
 </div>
 
-<!-- Menú contextual FIXED (fuera del sidebar) -->
 <div class="ctx-menu"
      *ngIf="menuOpenId"
      [ngStyle]="{ top: menuTop + 'px', left: menuLeft + 'px' }"

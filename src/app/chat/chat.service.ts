@@ -75,14 +75,27 @@ export class ChatService {
     });
   }
 
-  // ===== LLM: generar título temático corto =====
-  // Ajustá la ruta si montaste el router bajo /api (ej.: `${BASE}/api/utils/generate-title`)
   generateSmartTitle(seed: string) {
-  return this.http.post<{ ok: boolean; title: string }>(
-    BASE + PATHS.utils_title,
-    { seed },
-    { withCredentials: true, headers: authHeaders() }
-  ).pipe(map(r => (r?.title ?? "").trim()));
-}
+    return this.http.post<{ ok: boolean; title: string }>(
+      BASE + PATHS.utils_title,
+      { seed },
+      { withCredentials: true, headers: authHeaders() }
+    ).pipe(map(r => (r?.title ?? "").trim()));
+  }
 
+  // ===== Workspace OAuth status/control =====
+  workspaceStatus() {
+    return this.http.get<{ ok: boolean; connected: boolean; email: string | null }>(
+      BASE + "/workspace/status",
+      { withCredentials: true, headers: authHeaders() }
+    );
+  }
+
+  workspaceDisconnect() {
+    return this.http.post<{ ok: boolean }>(
+      BASE + "/workspace/disconnect",
+      {},
+      { withCredentials: true, headers: authHeaders() }
+    );
+  }
 }
