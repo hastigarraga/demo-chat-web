@@ -83,17 +83,24 @@ export class ChatService {
     ).pipe(map(r => (r?.title ?? "").trim()));
   }
 
-  // ===== Workspace OAuth status/control =====
+  // ✅ Workspace
+  workspaceStart(service: string) {
+    return this.http.get<{ ok: boolean; auth_url: string; state: string | null }>(
+      `${BASE}/workspace/auth/start?service=${encodeURIComponent(service)}`,
+      { withCredentials: true, headers: authHeaders() }
+    );
+  }
+
   workspaceStatus() {
     return this.http.get<{ ok: boolean; connected: boolean; email: string | null }>(
-      BASE + "/workspace/status",
+      `${BASE}/workspace/status`,
       { withCredentials: true, headers: authHeaders() }
     );
   }
 
   workspaceDisconnect() {
     return this.http.post<{ ok: boolean }>(
-      BASE + "/workspace/disconnect",
+      `${BASE}/workspace/disconnect`,
       {},
       { withCredentials: true, headers: authHeaders() }
     );
